@@ -19,4 +19,9 @@ if __name__ == '__main__':
 
     print(*durations, sep='\n')
     print()
-    print('Average:', sum(durations) / len(durations))
+
+    average_dur = sum(durations) / len(durations)
+    ups = 1 / average_dur
+
+    print('Average:', average_dur)
+    print('UPS:\t', ups)
