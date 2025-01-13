@@ -18,6 +18,60 @@ class Environment:
         
     @staticmethod
     @cuda.jit
+    # def _static_disperseAndEvaporate(grid, output_grid, dt: float = 1):
+    #     # Thread indices
+    #     x, y = cuda.grid(2)
+
+    #     # Grid size
+    #     nx, ny = grid.shape
+
+    #     # Shared memory for a block (assumes blockDim.x and blockDim.y <= 16)
+    #     shared_grid = cuda.shared.array((32 + 2, 32 + 2), dtype=np.int32)
+
+    #     # Local thread indices in the block
+    #     tx = cuda.threadIdx.x + 1
+    #     ty = cuda.threadIdx.y + 1
+
+    #     # Load data into shared memory with a halo
+    #     if x < nx and y < ny:
+    #         shared_grid[tx, ty] = grid[x, y]
+    #         # Load the halo regions
+    #         if cuda.threadIdx.x == 0 and x > 0:
+    #             shared_grid[tx - 1, ty] = grid[x - 1, y]
+    #         if cuda.threadIdx.x == cuda.blockDim.x - 1 and x < nx - 1:
+    #             shared_grid[tx + 1, ty] = grid[x + 1, y]
+    #         if cuda.threadIdx.y == 0 and y > 0:
+    #             shared_grid[tx, ty - 1] = grid[x, y - 1]
+    #         if cuda.threadIdx.y == cuda.blockDim.y - 1 and y < ny - 1:
+    #             shared_grid[tx, ty + 1] = grid[x, y + 1]
+    #     cuda.syncthreads()
+
+    #     if x < nx and y < ny:
+    #         # Decode pheromones
+    #         xy_pheroA = (shared_grid[tx, ty] >> 31) & 0x7FFFFFFF
+    #         xy_pheroB = shared_grid[tx, ty] & 0x7FFFFFFF
+
+    #         # Blur calculation (sum of neighbors)
+    #         sum_a = 0
+    #         sum_b = 0
+    #         for dx in range(-1, 2):
+    #             for dy in range(-1, 2):
+    #                 neighbor_val = shared_grid[tx + dx, ty + dy]
+    #                 sum_a += (neighbor_val >> 31) & 0x7FFFFFFF
+    #                 sum_b += neighbor_val & 0x7FFFFFFF
+
+    #         blur_a = sum_a / 9
+    #         blur_b = sum_b / 9
+
+    #         diffusionDelta = 0.5 * dt
+
+    #         # Diffuse and evaporate pheromones
+    #         diff_evap_a = max(0, (diffusionDelta * xy_pheroA + (1 - diffusionDelta) * blur_a) - (0.01 * dt))
+    #         diff_evap_b = max(0, (diffusionDelta * xy_pheroB + (1 - diffusionDelta) * blur_b) - (0.01 * dt))
+
+    #         # Write to output grid
+    #         output_grid[x, y] = ((int(diff_evap_a) & 0x7FFFFFFF) << 31) | (int(diff_evap_b) & 0x7FFFFFFF)
+
     def _static_disperseAndEvaporate(grid, output_grid, dt:float=1):
         # assert len(np.shape(grid)) == 2, "Grid is not 2-Dimensional"
 
@@ -36,19 +90,30 @@ class Environment:
                     if y+y1 < 0 or y+y1 > grid.shape[1]: continue
 
                     sum_a += (grid[x + x1, y + y1] >> 31) & 0x7FFFFFFF # Get PheroA value
-                    sum_b += grid[x + x1, y + y1] & 0x7FFFFFFF # get PheroB value
+                    sum_b += grid[x + x1, y + y1] & 0x7FFFFFFF # Get PheroB value
             blur_a = sum_a / 9
             blur_b = sum_b / 9
 
             diffusionDelta = 0.5 * dt
 
-            # Diffuse Pheromones A & B
-            diff_a = (diffusionDelta * xy_pheroA) + ((1-diffusionDelta) * blur_a)
-            diff_b = (diffusionDelta * xy_pheroB) + ((1-diffusionDelta) * blur_b)
+            # # Diffuse & Evaporate Pheromones A
+            # if blur_a != -1:
+            #     diff_a = (diffusionDelta * xy_pheroA) + ((1-diffusionDelta) * blur_a) # diffuse
+            #     diff_evap_a = max(0, diff_a - (0.01 * dt)) # evaporate
+            # else:
+            #     diff_evap_a = 0
 
-            # Evaporate Pheromones A & B
-            diff_evap_a = max(0, diff_a - (0.01 * dt))
-            diff_evap_b = max(0, diff_b - (0.01 * dt))
+            # # Diffuse & Evaporate Pheromones B
+            # if blur_a != -1:
+            #     diff_b = (diffusionDelta * xy_pheroB) + ((1-diffusionDelta) * blur_b) # diffuse
+            #     diff_evap_b = max(0, diff_b - (0.01 * dt)) # evaporate
+            # else:
+            #     diff_evap_b = 0
+
+            # Diffuse and evaporate pheromones
+            diff_evap_a = max(0, (diffusionDelta * xy_pheroA + (1 - diffusionDelta) * blur_a) - (0.01 * dt))
+            diff_evap_b = max(0, (diffusionDelta * xy_pheroB + (1 - diffusionDelta) * blur_b) - (0.01 * dt))
+
 
             # Apply effects
             output_grid[x, y] = ((int(diff_evap_a) & 0x7FFFFFFF) << 31) | (int(diff_evap_b) & 0x7FFFFFFF)
