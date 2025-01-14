@@ -1,9 +1,6 @@
-name: venv
+name: environment
 channels:
   - defaults
-  - https://repo.anaconda.com/pkgs/main
-  - https://repo.anaconda.com/pkgs/r
-  - https://repo.anaconda.com/pkgs/msys2
 dependencies:
   - blas=1.0=mkl
   - bzip2=1.0.8=h2bbff1b_6
@@ -104,4 +101,5 @@ dependencies:
   - vswhere=2.8.4=haa95532_0
   - wheel=0.44.0=py39haa95532_0
   - zlib=1.2.13=h8cc25b3_1
-prefix: C:\Users\bh334\AppData\Local\anaconda3\envs\venv
+  - pip:
+      - pygame==2.6.1
