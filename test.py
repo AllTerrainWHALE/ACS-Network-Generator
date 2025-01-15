@@ -1,4 +1,6 @@
-# from src.cell import Cell
+import numpy as np
+
+from src.cell import Cell
 
 # c = 0
 
@@ -19,16 +21,17 @@
 # print()
 # print(0x7FFFFFFF)
 
-# xy_phero = 1
+# xy_phero = 0x7FFFFFFF
 # for _ in range(2):
 #     blur = xy_phero / 9
 
-#     diffusionDelta = 0.5
+#     diffusionDelta = 0.01
+#     evaporationDelta = 0.01 * 0x7FFFFFFF
 
 #     diff = (diffusionDelta * xy_phero) + ((1-diffusionDelta) * blur)
-#     diff_evap = max(0, diff - (0.01 * 1))
+#     diff_evap = max(0, diff - evaporationDelta)
 
-#     print(diff_evap)
+#     print(f"{round(diff_evap, 3):,}")
 
 #     xy_phero = diff_evap
 

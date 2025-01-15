@@ -5,11 +5,11 @@ from src.environment import Environment, Visualiser
 from src.cell import Cell
 from time import time, sleep
 
-def environment_updater(env, iters, stop_event):
+def environment_updater(env, iters, stop_event=None):
     durations = [0]
-    x,y = 250,125
+    # x,y = 250,125
     for i in range(iters):
-        if stop_event.is_set(): break
+        if stop_event and stop_event.is_set(): break
 
         start = time()
         env.update()
@@ -17,12 +17,13 @@ def environment_updater(env, iters, stop_event):
         # print(np.array([[Cell.getPheroB(cx) for cx in cy] for cy in env.grid]), end='\n\n')
         durations.append(time() - start)
 
-        y = min(env.grid.shape[1], max(0, y + 0.1))
+        # y = min(env.grid.shape[1], max(0, y + 0.1))
 
-        env.grid[int(x),int(y)] = Cell.setPheroA(env.grid[int(x),int(y)], 0x7FFFFFFF)
-        env.grid[int(x),500-int(y)] = Cell.setPheroA(env.grid[int(x),500-int(y)], 0x7FFFFFFF)
+        # env.grid[int(x),int(y)] = Cell.setPheroA(env.grid[int(x),int(y)], 0x7FFFFFFF)
+        # env.grid[int(x),500-int(y)] = Cell.setPheroB(env.grid[int(x),500-int(y)], 0x7FFFFFFF)
     
-    stop_event.set()
+    if stop_event:
+        stop_event.set()
 
     # print(*durations, sep='\n', end='\n\n')
     average_dur = sum(durations[2:]) / len(durations[2:])
@@ -47,7 +48,7 @@ def environment_visualiser(env, stop_event):
     #     print(np.array([[Cell.getPheroA(cx) for cx in cy] for cy in env.get_grid_safely()]), end='\n\n')
     #     sleep(1)
 
-    env_vis = Visualiser(env, screen_res=(1440,1440), fps=30)
+    env_vis = Visualiser(env, fps=30, screen_res=(1440,1440))
     env_vis.main()
 
     stop_event.set()
@@ -55,7 +56,7 @@ def environment_visualiser(env, stop_event):
 
 if __name__ == '__main__':
     grid_res = (500,500)
-    agents = 1000
+    agents = 1
     updates = 10000
 
     print("",
@@ -74,7 +75,7 @@ if __name__ == '__main__':
     )
 
     env = Environment(grid_res, agents)
-    env.grid[250,250] = Cell.setPheroA(env.grid[250,250], 0x7FFFFFFF)
+    # env.grid[100:150,100:150] = Cell.setState(env.grid[100:150,100:150], 1)
     # env.grid[2,2] = Cell.setPheroB(env.grid[2,2], 1000)
 
     print(f"{'INITIAL GRID':^34}")

@@ -48,3 +48,6 @@ class Cell:
     def getPheroB(whole_val):
         # Extract and return the last 31 bits
         return whole_val & 0x7FFFFFFF
+    
+    def getAll(whole_val):
+        return Cell.getState(whole_val), Cell.getPheroA(whole_val), Cell.getPheroB(whole_val)

@@ -65,7 +65,11 @@ class Environment:
     #         sum_a = 0
     #         sum_b = 0
     #         for dx in range(-1, 2):
+    #             if tx+dx < 0 or tx+dx > nx: continue
+
     #             for dy in range(-1, 2):
+    #                 if ty+dy < 0 or ty+dy > ny: continue
+
     #                 neighbor_val = shared_grid[tx + dx, ty + dy]
     #                 sum_a += (neighbor_val >> 31) & 0x7FFFFFFF
     #                 sum_b += neighbor_val & 0x7FFFFFFF
@@ -104,11 +108,12 @@ class Environment:
             blur_a = sum_a / 9
             blur_b = sum_b / 9
 
-            diffusionDelta = 0.5 * dt
+            diffusionDelta = 0.0000001 * dt
+            evaporationDelta = .001 * 0x7FFFFFFF * dt
 
             # Diffuse and evaporate pheromones
-            diff_evap_a = max(0, (diffusionDelta * xy_pheroA + (1 - diffusionDelta) * blur_a) - (0.01 * dt))
-            diff_evap_b = max(0, (diffusionDelta * xy_pheroB + (1 - diffusionDelta) * blur_b) - (0.01 * dt))
+            diff_evap_a = max(0, ((diffusionDelta * xy_pheroA) + ((1 - diffusionDelta) * blur_a)) - evaporationDelta)
+            diff_evap_b = max(0, ((diffusionDelta * xy_pheroB) + ((1 - diffusionDelta) * blur_b)) - evaporationDelta)
 
 
             # Apply effects
@@ -138,7 +143,7 @@ class Environment:
         self.disperseAndEvaporate(self.update_dt[-1])
 
         self.update_dt.append(time() - start)
-        self.update_dt = self.update_dt[-99:]
+        self.update_dt = self.update_dt[-100:]
         self.ups = len(self.update_dt) / sum(self.update_dt)
         # print(np.array([[Cell.getPheroA(cx) for cx in cy] for cy in self.grid]), end='\n\n')
 
@@ -151,6 +156,11 @@ class Environment:
         with self.thread_lock:
             return self.ups
         
+
+
+
+
+
 class Visualiser:
     def __init__(
         self, env:Environment,
@@ -162,7 +172,8 @@ class Visualiser:
     ):
         self.env = env
 
-        os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (0,0)
+        # os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (0,0)
+        os.environ['SDL_VIDEO_CENTERED'] = '1'
 
         pg.init()
         pg.display.set_caption("Environment Visualiser")
@@ -210,12 +221,19 @@ class Visualiser:
         ups_txt = self.font.render(f'{round(self.env.get_ups_safely())} UPS', True, pg.Color('grey'))
         ups_txt_rect = ups_txt.get_rect(topleft=(0,20))
 
-        getPheroA = np.vectorize(lambda g: Cell.getPheroA(g))
+        get_all_cell_data = np.vectorize(lambda g: Cell.getAll(g))
+        # get_all_pheroB = np.vectorize(lambda g: Cell.getPheroB(g))
 
-        pheroA_norm = getPheroA(self.env.get_grid_safely()) / 2147483647
+        states,pheroA,pheroB = get_all_cell_data(self.env.get_grid_safely())
+
+        pheroA_norm = pheroA / 2147483647
+        pheroB_norm = pheroB / 2147483647
         # pheroA_scaled = np.clip(pheroA_norm * 1, 0, 1)
 
-        g = pheroA_norm[:,:,np.newaxis] * np.array(self.fg)[np.newaxis,np.newaxis,:]
+        g = pheroA_norm[:,:,np.newaxis] * np.array((0,204,0))[np.newaxis,np.newaxis,:]
+        g += pheroB_norm[:,:,np.newaxis] * np.array((204,0,0))[np.newaxis,np.newaxis,:]
+        # g += states[states == 1] * np.array((255,255,255))[np.newaxis,np.newaxis,:]
+
         surf = pg.surfarray.make_surface(g)
         surf = pg.transform.scale_by(surf,(
             self.screen.get_width() / self.env.grid.shape[0],
