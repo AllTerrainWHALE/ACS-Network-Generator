@@ -7,6 +7,7 @@ from numba import cuda
 from time import time
 
 from src.cell import Cell
+from src.agent import Agent
 
 class Environment:
 
@@ -20,6 +21,8 @@ class Environment:
         # Allocate device memory for grid and output grid once
         self.grid_device = cuda.to_device(self.grid)
         self.output_grid_device = cuda.device_array_like(self.grid)
+
+        self.agents = np.array([Agent((250,250)) for a in range(population)])
 
         self.update_dt = [0]
         self.ups = 0
@@ -141,6 +144,13 @@ class Environment:
         start = time()
 
         self.disperseAndEvaporate(self.update_dt[-1])
+        for a in self.agents:
+            surr = np.pad(self.grid, pad_width=1, mode='constant', constant_values=-1)[int(a.pos[0]):int(a.pos[0]+3), int(a.pos[1]):int(a.pos[1]+3)]
+            a.update(surr, self.update_dt[-1])
+
+        for a in self.agents:
+            phero_amount, phero_type = a.release_phero()
+            self.grid[int(a.pos[0]), int(a.pos[1])] = (self.grid[int(a.pos[0]), int(a.pos[1])] & ~Cell.PHEROA_MASK) | ((phero_amount & 0x7FFFFFFF) << (phero_type*31))
 
         self.update_dt.append(time() - start)
         self.update_dt = self.update_dt[-100:]

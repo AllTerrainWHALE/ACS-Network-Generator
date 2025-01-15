@@ -36,6 +36,24 @@ from src.cell import Cell
 #     xy_phero = diff_evap
 
 
+env = np.random.randint(0,2,(5,5))
+pos = 4,4
 
-arr = [0,1,2,3,4,5]
-print(arr[-9:])
+
+print(env)
+print()
+
+# padded_env = np.pad(env, pad_width=1, mode='constant', constant_values=-1)
+
+surr = np.pad(env, pad_width=1, mode='constant', constant_values=-1)[pos[0]:pos[0]+3, pos[1]:pos[1]+3]
+
+print(surr)
+print()
+
+if any(np.array_equal([-1, -1, -1], edge) for edge in (surr[0,:], surr[2,:], surr[:,0], surr[:,2])):
+    print('At edge!')
+
+if (surr[0,:] == [-1,-1,-1]).all(): print('Top')
+if (surr[2,:] == [-1,-1,-1]).all(): print('Bottom')
+if (surr[:,0] == [-1,-1,-1]).all(): print('Left')
+if (surr[:,2] == [-1,-1,-1]).all(): print('Right')
