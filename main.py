@@ -44,11 +44,8 @@ def environment_updater(env, iters, stop_event=None):
     )
 
 def environment_visualiser(env, stop_event):
-    # while not stop_event.is_set():
-    #     print(np.array([[Cell.getPheroA(cx) for cx in cy] for cy in env.get_grid_safely()]), end='\n\n')
-    #     sleep(1)
 
-    env_vis = Visualiser(env, fps=30, screen_res=(1440,1440))
+    env_vis = Visualiser(env, fps=30)#, screen_res=(1440,1440))
     env_vis.main()
 
     stop_event.set()
@@ -56,7 +53,7 @@ def environment_visualiser(env, stop_event):
 
 if __name__ == '__main__':
     grid_res = (500,500)
-    agents = 1
+    agents = 10
     updates = 10000
 
     print("",

@@ -5,6 +5,7 @@ import os
 
 from numba import cuda
 from time import time
+from math import ceil
 
 from src.cell import Cell
 from src.agent import Agent
@@ -14,6 +15,7 @@ class Environment:
     def __init__(self, resolution:tuple[int,int], population:int=0):
 
         self.grid = np.zeros((resolution), dtype=np.int64)
+        self.p_grid = np.pad(self.grid, pad_width=1, mode='constant', constant_values=-1)
         # self.grid = np.array([[0 for x in range(resolution[0])] for y in range(resolution[1])])
         # np.array([[cx.setState(3) for cx in cy] for cy in self.grid])
         # print(np.array([[cx.getState() for cx in cy] for cy in self.grid]))
@@ -22,7 +24,7 @@ class Environment:
         self.grid_device = cuda.to_device(self.grid)
         self.output_grid_device = cuda.device_array_like(self.grid)
 
-        self.agents = np.array([Agent((250,250)) for a in range(population)])
+        self.agents = np.array([Agent((resolution[1]//2,resolution[0]//2)) for a in range(population)]) # state=np.random.randint(low=0,high=2)
 
         self.update_dt = [0]
         self.ups = 0
@@ -111,12 +113,12 @@ class Environment:
             blur_a = sum_a / 9
             blur_b = sum_b / 9
 
-            diffusionDelta = 0.0000001 * dt
-            evaporationDelta = .001 * 0x7FFFFFFF * dt
+            diffusionDelta = 1e1 * dt
+            evaporationDelta = 1e-3 * dt
 
             # Diffuse and evaporate pheromones
-            diff_evap_a = max(0, ((diffusionDelta * xy_pheroA) + ((1 - diffusionDelta) * blur_a)) - evaporationDelta)
-            diff_evap_b = max(0, ((diffusionDelta * xy_pheroB) + ((1 - diffusionDelta) * blur_b)) - evaporationDelta)
+            diff_evap_a = max(0, min(((diffusionDelta * xy_pheroA) + ((1 - diffusionDelta) * blur_a)) - evaporationDelta, 0x7FFFFFFF))
+            diff_evap_b = max(0, min(((diffusionDelta * xy_pheroB) + ((1 - diffusionDelta) * blur_b)) - evaporationDelta, 0x7FFFFFFF))
 
 
             # Apply effects
@@ -128,7 +130,7 @@ class Environment:
 
         # Launch the kernel on the GPU with the appropriate configuration
         threads_per_block = (32, 32)  # A 16x16 block of threads (256 threads per block)
-        blocks_per_grid = (self.grid.shape[0] // threads_per_block[0], self.grid.shape[1] // threads_per_block[1])
+        blocks_per_grid = (ceil(self.grid.shape[0] / threads_per_block[0]), ceil(self.grid.shape[1] / threads_per_block[1]))
 
         # Ensure there is at least 1 block in each dimension
         blocks_per_grid = (max(1, blocks_per_grid[0]), max(1, blocks_per_grid[1]))
@@ -139,23 +141,30 @@ class Environment:
         # Safely copy the new grid back to host
         with self.thread_lock:
             self.grid = self.output_grid_device.copy_to_host()
+            self.p_grid[1:-1,1:-1] = self.grid
 
     def update(self, dt:float=1):
         start = time()
 
-        self.disperseAndEvaporate(self.update_dt[-1])
+
+        
         for a in self.agents:
-            surr = np.pad(self.grid, pad_width=1, mode='constant', constant_values=-1)[int(a.pos[0]):int(a.pos[0]+3), int(a.pos[1]):int(a.pos[1]+3)]
+            # agent move
+            surr = self.p_grid[int(a.pos[1]):int(a.pos[1]+3), int(a.pos[0]):int(a.pos[0]+3)]
             a.update(surr, self.update_dt[-1])
 
-        for a in self.agents:
-            phero_amount, phero_type = a.release_phero()
-            self.grid[int(a.pos[0]), int(a.pos[1])] = (self.grid[int(a.pos[0]), int(a.pos[1])] & ~Cell.PHEROA_MASK) | ((phero_amount & 0x7FFFFFFF) << (phero_type*31))
+             # agent release pheromones
+            surr = self.p_grid[int(a.pos[1]):int(a.pos[1]+3), int(a.pos[0]):int(a.pos[0]+3)]
+            phero_amount, phero_type = a.release_phero(surr)
+            self.grid[int(a.pos[1]), int(a.pos[0])] = (self.grid[int(a.pos[1]), int(a.pos[0])] & ~Cell.PHEROA_MASK) | ((phero_amount & 0x7FFFFFFF) << (phero_type*31))
+
+        self.disperseAndEvaporate(self.update_dt[-1])
+
+
 
         self.update_dt.append(time() - start)
         self.update_dt = self.update_dt[-100:]
         self.ups = len(self.update_dt) / sum(self.update_dt)
-        # print(np.array([[Cell.getPheroA(cx) for cx in cy] for cy in self.grid]), end='\n\n')
 
     def get_grid_safely(self):
         # Safely access the grid in threading
@@ -231,8 +240,8 @@ class Visualiser:
         ups_txt = self.font.render(f'{round(self.env.get_ups_safely())} UPS', True, pg.Color('grey'))
         ups_txt_rect = ups_txt.get_rect(topleft=(0,20))
 
+        ### Render Pheromones and objects ###
         get_all_cell_data = np.vectorize(lambda g: Cell.getAll(g))
-        # get_all_pheroB = np.vectorize(lambda g: Cell.getPheroB(g))
 
         states,pheroA,pheroB = get_all_cell_data(self.env.get_grid_safely())
 
@@ -240,9 +249,13 @@ class Visualiser:
         pheroB_norm = pheroB / 2147483647
         # pheroA_scaled = np.clip(pheroA_norm * 1, 0, 1)
 
-        g = pheroA_norm[:,:,np.newaxis] * np.array((0,204,0))[np.newaxis,np.newaxis,:]
+        g = pheroA_norm[:,:,np.newaxis] * np.array((0,204,0))[np.newaxis,np.newaxis,:] #+ ((np.where(pheroA_norm != 0, 1-pheroA_norm, 0)[:,:,np.newaxis]) * np.array((0,0,204))[np.newaxis,np.newaxis,:])
         g += pheroB_norm[:,:,np.newaxis] * np.array((204,0,0))[np.newaxis,np.newaxis,:]
         # g += states[states == 1] * np.array((255,255,255))[np.newaxis,np.newaxis,:]
+
+        ### Render Agents ###
+        ant_coords = np.array([a.get_pos()[::-1] for a in self.env.agents])
+        g[tuple(ant_coords.T)] = (255,255,255)
 
         surf = pg.surfarray.make_surface(g)
         surf = pg.transform.scale_by(surf,(
