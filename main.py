@@ -7,8 +7,9 @@ from time import time, sleep
 
 def environment_updater(env, iters, stop_event=None):
     durations = [0]
+    iter = 0
     # x,y = 250,125
-    for i in range(iters):
+    while iter != iters:
         if stop_event and stop_event.is_set(): break
 
         start = time()
@@ -21,6 +22,8 @@ def environment_updater(env, iters, stop_event=None):
 
         # env.grid[int(x),int(y)] = Cell.setPheroA(env.grid[int(x),int(y)], 0x7FFFFFFF)
         # env.grid[int(x),500-int(y)] = Cell.setPheroB(env.grid[int(x),500-int(y)], 0x7FFFFFFF)
+
+        iter += 1
     
     if stop_event:
         stop_event.set()
@@ -45,7 +48,7 @@ def environment_updater(env, iters, stop_event=None):
 
 def environment_visualiser(env, stop_event):
 
-    env_vis = Visualiser(env, fps=30)#, screen_res=(1440,1440))
+    env_vis = Visualiser(env, fps=30, screen_res=(1440,1440))
     env_vis.main()
 
     stop_event.set()
@@ -53,8 +56,8 @@ def environment_visualiser(env, stop_event):
 
 if __name__ == '__main__':
     grid_res = (500,500)
-    agents = 10
-    updates = 10000
+    agents = 1
+    updates = -1
 
     print("",
         

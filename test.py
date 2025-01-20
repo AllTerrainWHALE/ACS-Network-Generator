@@ -1,5 +1,7 @@
 import numpy as np
 
+from math import pi
+
 from src.cell import Cell
 
 # c = 0
@@ -57,12 +59,17 @@ from src.cell import Cell
 # if (surr[2,:] == [-1,-1,-1]).all(): print('Bottom')
 # if (surr[:,0] == [-1,-1,-1]).all(): print('Left')
 # if (surr[:,2] == [-1,-1,-1]).all(): print('Right')
-
-env = np.random.randint(0,100,(5,5))
-poss = np.array([(2,3),(4,4),(3,1)])
-
-print(env)
 print()
+
+env = np.full((3,3),0,dtype=np.int64)
+env[0,1] = Cell.setPheroA(env[0,1],0x7FFFFFFF)
+env[2,0] = Cell.setPheroA(env[2,0],0x7FFFFFFF)
+# poss = np.array([(1,2),(2,2),(0,1)])
+pos = np.array([4,6])
+bearing = 2*pi/4
+state = 0
+
+print(f"Environment:\n{env}", end='\n\n')
 
 # print(env[:, (0,-1)])
 # print()
@@ -70,7 +77,38 @@ print()
 # print()
 # print(np.amax(list(map(lambda a: a + 1, env))))
 
+bearing %= 2*pi
 
-print(env[tuple(poss.T)])
+section = int(bearing // (pi/8))
 
-# print(env[(*[int(a) for a in pos[::-1]],)])
+heading_to_index = [5, 2, 2, 1, 1, 0, 0, 3, 3, 6, 6, 7, 7, 8, 8, 5]
+
+print(heading_to_index[section])
+
+# print(f"Section Index: {section_index}")
+# print(f"Heading Index: {heading_index}")
+
+
+
+# e = np.delete(env, 4)
+
+# indexs = np.argwhere(
+#     e == np.amax(
+#         e
+#     )
+# ).flatten()
+
+                
+# print(indexs)
+
+# for index in indexs:
+#     print('-'*10)
+
+#     index += index // 4
+#     print(index)
+#     print()
+
+#     move = (index % 3) - 1, (index // 3) - 1
+
+#     print(move)
+#     print(pos + move)

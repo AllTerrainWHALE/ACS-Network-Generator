@@ -30,6 +30,8 @@ class Environment:
         self.ups = 0
 
         self.thread_lock = th.Lock()
+
+        self.disperseAndEvaporate()
         
     @staticmethod
     @cuda.jit
@@ -114,11 +116,11 @@ class Environment:
             blur_b = sum_b / 9
 
             diffusionDelta = 1e1 * dt
-            evaporationDelta = 1e-3 * dt
+            evaporationDelta = 5e-4 * 0x7FFFFFFF * dt
 
             # Diffuse and evaporate pheromones
-            diff_evap_a = max(0, min(((diffusionDelta * xy_pheroA) + ((1 - diffusionDelta) * blur_a)) - evaporationDelta, 0x7FFFFFFF))
-            diff_evap_b = max(0, min(((diffusionDelta * xy_pheroB) + ((1 - diffusionDelta) * blur_b)) - evaporationDelta, 0x7FFFFFFF))
+            diff_evap_a = max(0, min(((diffusionDelta * blur_a) + ((1 - diffusionDelta) * xy_pheroA)) - evaporationDelta, 0x7FFFFFFF))
+            diff_evap_b = max(0, min(((diffusionDelta * blur_b) + ((1 - diffusionDelta) * xy_pheroB)) - evaporationDelta, 0x7FFFFFFF))
 
 
             # Apply effects
@@ -146,17 +148,19 @@ class Environment:
     def update(self, dt:float=1):
         start = time()
 
+        ###! TESTING PHEROMONE TYPE B ###
+        self.grid[100,125] = Cell.setPheroB(self.grid[100,125],0x7FFFFFFF)
 
         
         for a in self.agents:
             # agent move
-            surr = self.p_grid[int(a.pos[1]):int(a.pos[1]+3), int(a.pos[0]):int(a.pos[0]+3)]
-            a.update(surr, self.update_dt[-1])
+            surr = self.p_grid[int(a.pos[0]):int(a.pos[0]+3), int(a.pos[1]):int(a.pos[1]+3)]
+            a.follow_phero(surr, self.update_dt[-1])
 
              # agent release pheromones
-            surr = self.p_grid[int(a.pos[1]):int(a.pos[1]+3), int(a.pos[0]):int(a.pos[0]+3)]
+            surr = self.p_grid[int(a.pos[0]):int(a.pos[0]+3), int(a.pos[1]):int(a.pos[1]+3)]
             phero_amount, phero_type = a.release_phero(surr)
-            self.grid[int(a.pos[1]), int(a.pos[0])] = (self.grid[int(a.pos[1]), int(a.pos[0])] & ~Cell.PHEROA_MASK) | ((phero_amount & 0x7FFFFFFF) << (phero_type*31))
+            self.grid[(*a.get_pos(),)] = (self.grid[(*a.get_pos(),)] & ~Cell.PHEROA_MASK) | ((phero_amount & 0x7FFFFFFF) << (phero_type*31))
 
         self.disperseAndEvaporate(self.update_dt[-1])
 
@@ -240,21 +244,30 @@ class Visualiser:
         ups_txt = self.font.render(f'{round(self.env.get_ups_safely())} UPS', True, pg.Color('grey'))
         ups_txt_rect = ups_txt.get_rect(topleft=(0,20))
 
-        ### Render Pheromones and objects ###
+        ### Render Pheromones and Objects ###
         get_all_cell_data = np.vectorize(lambda g: Cell.getAll(g))
 
         states,pheroA,pheroB = get_all_cell_data(self.env.get_grid_safely())
 
-        pheroA_norm = pheroA / 2147483647
-        pheroB_norm = pheroB / 2147483647
-        # pheroA_scaled = np.clip(pheroA_norm * 1, 0, 1)
+        # Normalize pheros
+        pheroA_norm = pheroA**1.05 / 2147483647
+        pheroB_norm = pheroB**1.05 / 2147483647
+        
+        # Scaling pheros
+        pheroA_norm = np.clip(pheroA_norm, 0, 1)
 
-        g = pheroA_norm[:,:,np.newaxis] * np.array((0,204,0))[np.newaxis,np.newaxis,:] #+ ((np.where(pheroA_norm != 0, 1-pheroA_norm, 0)[:,:,np.newaxis]) * np.array((0,0,204))[np.newaxis,np.newaxis,:])
-        g += pheroB_norm[:,:,np.newaxis] * np.array((204,0,0))[np.newaxis,np.newaxis,:]
+        g = pheroA_norm[:,:,np.newaxis] * np.array((0,204,0))[np.newaxis,np.newaxis,:] + (
+            ((np.where(pheroA_norm >= 0.05, 1-pheroA_norm, 0)[:,:,np.newaxis]) * np.array((96,96,96))[np.newaxis,np.newaxis,:]) +
+            ((np.where((pheroA_norm > 0.0) & (pheroA_norm < 0.05), 1-pheroA_norm, 0)[:,:,np.newaxis]) * np.array((32,32,32))[np.newaxis,np.newaxis,:])
+        )
+        g += pheroB_norm[:,:,np.newaxis] * np.array((204,0,0))[np.newaxis,np.newaxis,:] + (
+            ((np.where(pheroB_norm >= 0.05, 1-pheroB_norm, 0)[:,:,np.newaxis]) * np.array((96,96,96))[np.newaxis,np.newaxis,:]) +
+            ((np.where((pheroB_norm > 0.0) & (pheroB_norm < 0.05), 1-pheroB_norm, 0)[:,:,np.newaxis]) * np.array((32,32,32))[np.newaxis,np.newaxis,:])
+        )
         # g += states[states == 1] * np.array((255,255,255))[np.newaxis,np.newaxis,:]
 
         ### Render Agents ###
-        ant_coords = np.array([a.get_pos()[::-1] for a in self.env.agents])
+        ant_coords = np.array([a.get_pos() for a in self.env.agents])
         g[tuple(ant_coords.T)] = (255,255,255)
 
         surf = pg.surfarray.make_surface(g)
