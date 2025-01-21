@@ -19,7 +19,7 @@ class Agent:
                 state:int=None
     ):
         self.pos = np.array(position, dtype=np.float64)
-        self.bearing = bearing if bearing else 0 #np.random.uniform(0,2*pi)
+        self.bearing = bearing if bearing else pi/2 #np.random.uniform(0,2*pi)
         self.speed = speed
 
         self.state = state if state != None else 1
@@ -48,30 +48,55 @@ class Agent:
         return int(phero_val) if self.state == 1 else 0, self.state
     
     def follow_phero(self, surrounding, dt:float=1):
-        surrounding = list(map(Cell.getPheroA if self.state == 0 else Cell.getPheroB, surrounding))
+        # surrounding = list(map(Cell.getPheroA if self.state == 0 else Cell.getPheroB, surrounding))
+        states,pheroA,pheroB = np.vectorize(lambda a: Cell.getAll(a))(surrounding)
 
-        neighbours = np.delete(surrounding, 4)
+        surr_pheros = pheroA if self.state == 0 else pheroB
+        surr_pheros = np.where(states == 3, -np.inf, surr_pheros)
 
-        if np.random.rand() > 0.1:
+        neighbours = np.delete(surr_pheros, 4)
+
+        print(neighbours)
+
+        t_probs = np.full(8,0.1)
+        t_probs[neighbours == -np.inf] = 0
+
+        # Calc favoured translation from current bearing
+        y,x = round(np.cos(self.bearing)), round(-np.sin(self.bearing))
+
+        # 1D index of neighbours
+        i = (y + 1) * 3 + (x+1)
+        i -= i // 4 # account for deleted index 4
+
+        t_probs[i] += 0.2
+
+        index = np.argmax(t_probs)
+
+        if np.random.rand() > 0:
 
             # index = np.random.choice(
-            #     np.argwhere(
-            #         neighbours == np.amax(
-            #             neighbours
-            #         )
-            #     ).flatten()
+            indices = np.argwhere(
+                neighbours == np.amax(
+                    neighbours
+                )
+            ).flatten()
             # )
-            index = np.argmax(neighbours)
+            t_probs[indices] = 0.5
+            
+            # index = np.argmax(neighbours)
         
         else:
-            index = np.random.randint(0,8)
-            print('> Random Move!')
+            index = np.random.choice(np.arange(8), p=t_probs/np.sum(t_probs))
+            #// print('> Random Move!')
 
         index += index // 4 # Account for (1,1) being removed
 
-        move = ((index // 3) - 1) * dt * self.speed, ((index % 3) - 1) * dt * self.speed
+        translation = np.array(((index // 3) - 1, (index % 3) - 1))
+        new_bearing = np.arctan2(-translation[1], translation[0]) % (2*pi)
 
-        self.pos += np.clip(move, -1, 1)
+        self.bearing = new_bearing
+
+        self.pos += np.clip(translation * dt * self.speed, -1, 1)
     
     def get_pos(self):
         return np.array([int(a) for a in self.pos])

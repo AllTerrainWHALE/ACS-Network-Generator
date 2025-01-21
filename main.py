@@ -49,9 +49,15 @@ def environment_updater(env, iters, stop_event=None):
 def environment_visualiser(env, stop_event):
 
     env_vis = Visualiser(env, fps=30, screen_res=(1440,1440))
-    env_vis.main()
 
-    stop_event.set()
+    try:
+        env_vis.main()
+
+    except Exception as e:
+        print(e)
+
+    finally:
+        stop_event.set()
 
 
 if __name__ == '__main__':
@@ -84,11 +90,11 @@ if __name__ == '__main__':
 
     answer = None
     while answer not in ['y','n']:
-        answer = input("Do you want the visual environment? (Y/N)\n").lower()
+        answer = input("> Do you want the visual environment? (Y/N)\n").lower()
         print()
 
         if answer not in ['y','n']:
-            print("Invalid response\n")
+            print("> Invalid response\n")
 
     if answer == 'y':
         stop_event = th.Event()
@@ -106,7 +112,10 @@ if __name__ == '__main__':
         visualiser_thread.join()
 
     else:
-        environment_updater(env, updates)
+        if updates < 0:
+            print(f"> A count of {updates} updates will result in an infinite loop. Please select an alternative count")
+        else:
+            environment_updater(env, updates)
 
 
 

@@ -14,8 +14,8 @@ class Environment:
 
     def __init__(self, resolution:tuple[int,int], population:int=0):
 
-        self.grid = np.zeros((resolution), dtype=np.int64)
-        self.p_grid = np.pad(self.grid, pad_width=1, mode='constant', constant_values=-1)
+        self.grid = np.zeros((resolution), dtype=np.uint64)
+        self.p_grid = np.pad(self.grid, pad_width=1, mode='constant', constant_values=Cell.setState(0, 3))
         # self.grid = np.array([[0 for x in range(resolution[0])] for y in range(resolution[1])])
         # np.array([[cx.setState(3) for cx in cy] for cy in self.grid])
         # print(np.array([[cx.getState() for cx in cy] for cy in self.grid]))
@@ -24,7 +24,7 @@ class Environment:
         self.grid_device = cuda.to_device(self.grid)
         self.output_grid_device = cuda.device_array_like(self.grid)
 
-        self.agents = np.array([Agent((resolution[1]//2,resolution[0]//2)) for a in range(population)]) # state=np.random.randint(low=0,high=2)
+        self.agents = np.array([Agent((250,0)) for a in range(population)]) # state=np.random.randint(low=0,high=2)
 
         self.update_dt = [0]
         self.ups = 0
@@ -148,19 +148,19 @@ class Environment:
     def update(self, dt:float=1):
         start = time()
 
-        ###! TESTING PHEROMONE TYPE B ###
-        self.grid[100,125] = Cell.setPheroB(self.grid[100,125],0x7FFFFFFF)
+        ###! TESTING PHEROMONE TYPE B !###
+        # self.grid[100,125] = Cell.setPheroB(self.grid[100,125],0x7FFFFFFF)
 
         
         for a in self.agents:
             # agent move
-            surr = self.p_grid[int(a.pos[0]):int(a.pos[0]+3), int(a.pos[1]):int(a.pos[1]+3)]
+            surr = self.p_grid[int(a.pos[1]):int(a.pos[1]+3), int(a.pos[0]):int(a.pos[0]+3)]
             a.follow_phero(surr, self.update_dt[-1])
 
-             # agent release pheromones
-            surr = self.p_grid[int(a.pos[0]):int(a.pos[0]+3), int(a.pos[1]):int(a.pos[1]+3)]
+            # agent release pheromones
+            surr = self.p_grid[int(a.pos[1]):int(a.pos[1]+3), int(a.pos[0]):int(a.pos[0]+3)]
             phero_amount, phero_type = a.release_phero(surr)
-            self.grid[(*a.get_pos(),)] = (self.grid[(*a.get_pos(),)] & ~Cell.PHEROA_MASK) | ((phero_amount & 0x7FFFFFFF) << (phero_type*31))
+            self.grid[(*a.get_pos(),)] = (int(self.grid[(*a.get_pos(),)]) & ~Cell.PHEROA_MASK) | ((phero_amount & 0x7FFFFFFF) << (phero_type*31))
 
         self.disperseAndEvaporate(self.update_dt[-1])
 
@@ -254,7 +254,8 @@ class Visualiser:
         pheroB_norm = pheroB**1.05 / 2147483647
         
         # Scaling pheros
-        pheroA_norm = np.clip(pheroA_norm, 0, 1)
+        # pheroA_norm = np.clip(pheroA_norm, 0, 1)
+        # pheroB_norm = np.clip(pheroB_norm, 0, 1)
 
         g = pheroA_norm[:,:,np.newaxis] * np.array((0,204,0))[np.newaxis,np.newaxis,:] + (
             ((np.where(pheroA_norm >= 0.05, 1-pheroA_norm, 0)[:,:,np.newaxis]) * np.array((96,96,96))[np.newaxis,np.newaxis,:]) +

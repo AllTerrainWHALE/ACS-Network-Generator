@@ -16,20 +16,28 @@ class Cell:
     
     @staticmethod
     def setState(whole_val, new_val: int):
+        """
+        2-bit long integer representing the state of the Cell in the environment.
+
+        - `0` : Nothing
+        - `1` : Food
+        - `2` : ???
+        - `3` : Wall / Obstruction
+        """
         # Clear the first 2 bits and set them
-        whole_val = (whole_val & ~Cell.STATE_MASK) | ((new_val & 0b11) << 62)
+        whole_val = (int(whole_val) & ~Cell.STATE_MASK) | ((new_val & 0b11) << 62)
         return whole_val
 
     @staticmethod
     def setPheroA(whole_val, new_val: int):
         # Clear the next 31 bits and set them
-        whole_val = (whole_val & ~Cell.PHEROA_MASK) | ((new_val & 0x7FFFFFFF) << 31)
+        whole_val = (int(whole_val) & ~Cell.PHEROA_MASK) | ((new_val & 0x7FFFFFFF) << 31)
         return whole_val
 
     @staticmethod
     def setPheroB(whole_val, new_val: int):
         # Clear the last 31 bits and set them
-        whole_val = (whole_val & ~Cell.PHEROB_MASK) | (new_val & 0x7FFFFFFF)
+        whole_val = (int(whole_val) & ~Cell.PHEROB_MASK) | (new_val & 0x7FFFFFFF)
         return whole_val
     
 
@@ -37,17 +45,18 @@ class Cell:
     @staticmethod
     def getState(whole_val):
         # Extract and return the first 2 bits
-        return (whole_val >> 62) & 0b11
+        return (int(whole_val) >> 62) & 0b11
 
     @staticmethod
     def getPheroA(whole_val):
         # Extract and return the next 31 bits
-        return (whole_val >> 31) & 0x7FFFFFFF
+        return (int(whole_val) >> 31) & 0x7FFFFFFF
 
     @staticmethod
     def getPheroB(whole_val):
         # Extract and return the last 31 bits
-        return whole_val & 0x7FFFFFFF
+        return int(whole_val) & 0x7FFFFFFF
     
+    @staticmethod
     def getAll(whole_val):
         return Cell.getState(whole_val), Cell.getPheroA(whole_val), Cell.getPheroB(whole_val)
