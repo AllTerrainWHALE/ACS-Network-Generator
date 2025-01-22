@@ -24,8 +24,8 @@ class Environment:
         self.grid_device = cuda.to_device(self.grid)
         self.output_grid_device = cuda.device_array_like(self.grid)
 
-        self.agents = np.array([Agent((250,0)) for a in range(population)]) # state=np.random.randint(low=0,high=2)
-
+        self.agents = np.array([Agent((250,250)) for a in range(population)])
+        # (np.random.randint(resolution[0]), np.random.randint(resolution[1]))
         self.update_dt = [0]
         self.ups = 0
 
@@ -106,22 +106,21 @@ class Environment:
             sum_a = 0
             sum_b = 0
             for x1 in range(-1,2):
-                if x+x1 < 0 or x+x1 > grid.shape[0]: continue
+                if x+x1 < 0 or x+x1 >= grid.shape[0]: continue
                 for y1 in range(-1,2):
-                    if y+y1 < 0 or y+y1 > grid.shape[1]: continue
+                    if y+y1 < 0 or y+y1 >= grid.shape[1]: continue
 
                     sum_a += (grid[x + x1, y + y1] >> 31) & 0x7FFFFFFF # Get PheroA value
                     sum_b += grid[x + x1, y + y1] & 0x7FFFFFFF # Get PheroB value
             blur_a = sum_a / 9
             blur_b = sum_b / 9
 
-            diffusionDelta = 1e1 * dt
-            evaporationDelta = 5e-4 * 0x7FFFFFFF * dt
+            diffusionDelta = 1e0 * dt
+            evaporationDelta = 1e-6 * 0x7FFFFFFF * dt * 0
 
             # Diffuse and evaporate pheromones
             diff_evap_a = max(0, min(((diffusionDelta * blur_a) + ((1 - diffusionDelta) * xy_pheroA)) - evaporationDelta, 0x7FFFFFFF))
             diff_evap_b = max(0, min(((diffusionDelta * blur_b) + ((1 - diffusionDelta) * xy_pheroB)) - evaporationDelta, 0x7FFFFFFF))
-
 
             # Apply effects
             output_grid[x, y] = ((int(diff_evap_a) & 0x7FFFFFFF) << 31) | (int(diff_evap_b) & 0x7FFFFFFF)
@@ -149,22 +148,27 @@ class Environment:
         start = time()
 
         ###! TESTING PHEROMONE TYPE B !###
-        # self.grid[100,125] = Cell.setPheroB(self.grid[100,125],0x7FFFFFFF)
+        # self.grid[100,375] = Cell.setPheroB(self.grid[100,375],0x7FFFFFFF)
 
         
         for a in self.agents:
-            # agent move
-            surr = self.p_grid[int(a.pos[1]):int(a.pos[1]+3), int(a.pos[0]):int(a.pos[0]+3)]
-            a.follow_phero(surr, self.update_dt[-1])
+            
+            surr = self.p_grid[int(a.pos[0]):int(a.pos[0]+3), int(a.pos[1]):int(a.pos[1]+3)].T
 
             # agent release pheromones
-            surr = self.p_grid[int(a.pos[1]):int(a.pos[1]+3), int(a.pos[0]):int(a.pos[0]+3)]
             phero_amount, phero_type = a.release_phero(surr)
-            self.grid[(*a.get_pos(),)] = (int(self.grid[(*a.get_pos(),)]) & ~Cell.PHEROA_MASK) | ((phero_amount & 0x7FFFFFFF) << (phero_type*31))
+            self.grid[(*a.get_pos(),)] = (int(self.grid[(*a.get_pos(),)]) & ~Cell.PHEROA_MASK) | ((int(phero_amount) & 0x7FFFFFFF) << (phero_type*31))
+
+            
+            # agent move
+            a.follow_phero(surr, self.update_dt[-1])
+
+            
+            # surr = self.p_grid[int(a.pos[0]):int(a.pos[0]+3), int(a.pos[1]):int(a.pos[1]+3)].T
 
         self.disperseAndEvaporate(self.update_dt[-1])
 
-
+        print(self.grid[(*self.agents[0].get_pos(),)])
 
         self.update_dt.append(time() - start)
         self.update_dt = self.update_dt[-100:]
@@ -254,14 +258,14 @@ class Visualiser:
         pheroB_norm = pheroB**1.05 / 2147483647
         
         # Scaling pheros
-        # pheroA_norm = np.clip(pheroA_norm, 0, 1)
-        # pheroB_norm = np.clip(pheroB_norm, 0, 1)
+        pheroA_norm = np.clip(pheroA_norm, 0, 1)
+        pheroB_norm = np.clip(pheroB_norm, 0, 1)
 
         g = pheroA_norm[:,:,np.newaxis] * np.array((0,204,0))[np.newaxis,np.newaxis,:] + (
             ((np.where(pheroA_norm >= 0.05, 1-pheroA_norm, 0)[:,:,np.newaxis]) * np.array((96,96,96))[np.newaxis,np.newaxis,:]) +
             ((np.where((pheroA_norm > 0.0) & (pheroA_norm < 0.05), 1-pheroA_norm, 0)[:,:,np.newaxis]) * np.array((32,32,32))[np.newaxis,np.newaxis,:])
         )
-        g += pheroB_norm[:,:,np.newaxis] * np.array((204,0,0))[np.newaxis,np.newaxis,:] + (
+        g += pheroB_norm[:,:,np.newaxis] * np.array((0,0,204))[np.newaxis,np.newaxis,:] + (
             ((np.where(pheroB_norm >= 0.05, 1-pheroB_norm, 0)[:,:,np.newaxis]) * np.array((96,96,96))[np.newaxis,np.newaxis,:]) +
             ((np.where((pheroB_norm > 0.0) & (pheroB_norm < 0.05), 1-pheroB_norm, 0)[:,:,np.newaxis]) * np.array((32,32,32))[np.newaxis,np.newaxis,:])
         )

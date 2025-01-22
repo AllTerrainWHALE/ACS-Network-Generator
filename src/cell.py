@@ -21,7 +21,7 @@ class Cell:
 
         - `0` : Nothing
         - `1` : Food
-        - `2` : ???
+        - `2` : Nest
         - `3` : Wall / Obstruction
         """
         # Clear the first 2 bits and set them

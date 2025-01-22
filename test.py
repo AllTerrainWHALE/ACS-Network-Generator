@@ -67,15 +67,21 @@ print()
 # if (surr[:,2] == [-1,-1,-1]).all(): print('Right')
 
 #! Agent Movement Selection Testing
-# env = np.full((3,3),0,dtype=np.int64)
+# env = np.random.randint(0,10,(5,5))
 # env[0,1] = Cell.setPheroA(env[0,1],0x7FFFFFFF)
 # env[2,0] = Cell.setPheroA(env[2,0],0x7FFFFFFF)
 # # poss = np.array([(1,2),(2,2),(0,1)])
-# pos = np.array([4,6])
+# pos = np.array([2,2])
 # bearing = 2*pi/4
 # state = 0
 
 # print(f"Environment:\n{env}", end='\n\n')
+
+# surrounding = env[int(pos[1]-1):int(pos[1]+2), int(pos[0]-1):int(pos[0]+2)]
+# print(f"Surrounding:\n{surrounding}", end='\n\n')
+
+# neighbours = np.delete(surrounding, 4)
+# print(f"Neighbours:\n{neighbours}", end='\n\n')
 
 # print(env[:, (0,-1)])
 # print()
@@ -117,56 +123,16 @@ print()
 #     print(move)
 #     print(pos + move)
 
-import numpy as np
+#! Numpy Conditional Indexing and Assignment
+# arr1 = np.ones(10)
+# arr2 = np.random.randint(0,2,10)
 
-def bearing_to_transformation(bearing):
-    """
-    Convert a bearing in radians to a (x, y) transformation.
-    
-    Args:
-    - bearing (float): Angle in radians.
-    
-    Returns:
-    - tuple: (x, y) transformation as integers in [-1, 0, 1].
-    """
-    # Compute x, y from the bearing
-    x = np.cos(bearing)
-    y = -np.sin(bearing)  # Negative sign to invert the vertical axis
-    
-    # Round to nearest integers in [-1, 0, 1]
-    return round(x), round(y)
+# print(arr1, arr2, sep='\n', end='\n\n')
 
-# Example bearings
-bearings = [0, np.pi/2, np.pi, 3*np.pi/2, np.pi/4, 7*np.pi/4]
-transformations = [bearing_to_transformation(b) for b in bearings]
+# arr1[arr2 == 2] = 0
 
-# Output results
-for bearing, (x, y) in zip(bearings, transformations):
-    print(f"Bearing: {degrees(bearing):.2f} degrees -> Transformation: ({x}, {y})")
+# print(arr1)
 
-def transformation_to_index(x, y):
-    """
-    Convert a (x, y) transformation to a 1D index of a 3x3 grid.
-    
-    Args:
-    - x (int): Horizontal transformation (-1, 0, 1).
-    - y (int): Vertical transformation (-1, 0, 1).
-    
-    Returns:
-    - int: 1D index of the 3x3 grid.
-    """
-    # Map (x, y) to grid coordinates
-    grid_row = y + 1
-    grid_col = x + 1
-    
-    # Compute 1D index
-    return grid_row * 3 + grid_col
 
-# Example transformations
-transformations = [(1, 0), (0, -1), (-1, 0), (0, 1), (1, 1), (-1, -1), (1,-1), (-1,1)]
-indices = [transformation_to_index(x, y) for x, y in transformations]
-
-# Output results
-for (x, y), idx in zip(transformations, indices):
-    print(f"Transformation ({x}, {y}) -> Index: {idx}")
-
+print(f"{0x7FFFFFFF:>10}")
+print(f"{int(1e-6 * 0x7FFFFFFF):>10}")
