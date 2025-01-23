@@ -1,9 +1,10 @@
 import numpy as np
 import threading as th
 
-from src.cell import Cell
 from time import time, sleep
 from math import sin, cos, pi, radians, degrees
+
+from src.cell import Cell
 
 class Agent:
 
@@ -17,41 +18,42 @@ class Agent:
                 state:int=None
     ):
         self.pos = np.array(position, dtype=np.float64) # (x,y)
-        self.bearing = bearing if bearing else np.random.uniform(0,2*pi)
+        self.bearing = bearing if bearing else pi*7/4#np.random.uniform(0,2*pi)
         self.speed = speed
 
-        self.state = state if state != None else 0 #np.random.randint(0,2)
+        self.state = state if state != None else np.random.randint(0,2)
         print(self.state)
+
+        self.timer = time()
 
         self.reward = 0x7FFFFFFF
 
     def release_phero(self, surrounding):
         # return pheromone amount, and phero type (1 = A | 0 = B)
-        
-        neighbours = np.delete(surrounding, 4)
 
-        reward = self.reward
+        surr_pheroX = np.vectorize(lambda s: Cell.getPheroA(s) if self.state == 1 else Cell.getPheroB(s))(surrounding)
+        
+        neighbours = np.delete(surr_pheroX, 4)
+
+        reward = self.reward #+ surr_pheroX[1,1]
         if Cell.getState(surrounding[1,1]) in [1,2]:
             reward = 0x7FFFFFFF
 
-        phero_val = (
-            reward +
-            Agent.learning_rate *
-            np.amax(
-                list(
-                    map(
-                        Cell.getPheroA if self.state == 1 else Cell.getPheroB, neighbours
-                    )
-                )
-            )
-        )
-        phero_val = max(0, min(0x7FFFFFFF, phero_val))
+        phero_val = np.uint32(reward + Agent.learning_rate * np.amax(neighbours))
+        phero_val = max(surr_pheroX[1,1], min(0x7FFFFFFF, phero_val))
 
         self.reward = 0
 
         return phero_val, self.state
     
     def follow_phero(self, surrounding, dt:float=1):
+        if time() - self.timer >= 60:
+            self.state = not self.state
+            self.timer = time()
+            self.reward = 0x7FFFFFFF
+            print("SWITCH!")
+
+
         # surrounding = list(map(Cell.getPheroA if self.state == 0 else Cell.getPheroB, surrounding))
         states,pheroA,pheroB = np.vectorize(lambda a: Cell.getAll(a))(surrounding)
 
@@ -69,7 +71,7 @@ class Agent:
 
         # 1D index of neighbours
         heading_index = (y + 1) * 3 + (x + 1)
-        heading_index -= heading_index // 4 # account for deleted index 4
+        heading_index -= heading_index // 5 # account for deleted index 4
 
         # Favour the space that the agent is facing
         t_probs[heading_index] += 0.2

@@ -12,13 +12,13 @@ print()
 # c = 0
 
 # c = Cell.setState(c, 1)
-# c = Cell.setPheroA(c, 5)
-# c = Cell.setPheroB(c, 4)
+# c = Cell.setPheroB(c, 0x7FFFFFFF)
+# c = Cell.setPheroA(c, 0x7FFFFFFF)
 
 # print(Cell.getState(c))
 # print(Cell.getPheroA(c))
 # print(Cell.getPheroB(c))
-# print()
+# print(Cell.getAll(c))
 
 # c = Cell.setPheroA(c, 0x7FFFFFFF)
 
@@ -72,8 +72,17 @@ print()
 # env[2,0] = Cell.setPheroA(env[2,0],0x7FFFFFFF)
 # # poss = np.array([(1,2),(2,2),(0,1)])
 # pos = np.array([2,2])
-# bearing = 2*pi/4
-# state = 0
+# bearing = pi*8/4
+# # state = 0
+
+# # Calc favoured translation from current bearing
+# x,y = round(np.cos(bearing)), round(-np.sin(bearing))
+
+# # 1D index of neighbours
+# heading_index = (y + 1) * 3 + (x + 1)
+# heading_index -= heading_index // 5 # account for deleted index 4
+
+# print(heading_index)
 
 # print(f"Environment:\n{env}", end='\n\n')
 
