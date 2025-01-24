@@ -18,11 +18,10 @@ class Agent:
                 state:int=None
     ):
         self.pos = np.array(position, dtype=np.float64) # (x,y)
-        self.bearing = bearing if bearing else pi*7/4#np.random.uniform(0,2*pi)
+        self.bearing = bearing if bearing else np.random.uniform(0,2*pi)
         self.speed = speed
 
         self.state = state if state != None else np.random.randint(0,2)
-        print(self.state)
 
         self.timer = time()
 
@@ -38,6 +37,7 @@ class Agent:
         reward = self.reward #+ surr_pheroX[1,1]
         if Cell.getState(surrounding[1,1]) in [1,2]:
             reward = 0x7FFFFFFF
+            #! self.state = not self.state
 
         phero_val = np.uint32(reward + Agent.learning_rate * np.amax(neighbours))
         phero_val = max(surr_pheroX[1,1], min(0x7FFFFFFF, phero_val))
@@ -47,7 +47,7 @@ class Agent:
         return phero_val, self.state
     
     def follow_phero(self, surrounding, dt:float=1):
-        if time() - self.timer >= 60:
+        if time() - self.timer >= 10:
             self.state = not self.state
             self.timer = time()
             self.reward = 0x7FFFFFFF

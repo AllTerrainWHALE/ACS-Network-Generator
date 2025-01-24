@@ -19,10 +19,10 @@ class Cell:
         """
         2-bit long integer representing the state of the Cell in the environment.
 
-        - `0` : Nothing
-        - `1` : Food
-        - `2` : Nest
-        - `3` : Wall / Obstruction
+        - `State.NONE = 0` -> Nothing
+        - `State.FOOD = 1` -> Food
+        - `State.NEST = 2` -> Nest
+        - `State.OBJ = 3` -> Wall / Obstruction
         """
         # Clear the first 2 bits and set them
         whole_val = (int(whole_val) & ~Cell.STATE_MASK) | ((new_val & 0b11) << 62)
@@ -60,3 +60,9 @@ class Cell:
     @staticmethod
     def getAll(whole_val):
         return Cell.getState(whole_val), Cell.getPheroA(whole_val), Cell.getPheroB(whole_val)
+    
+class State:
+    NONE = 0
+    FOOD = 1
+    NEST = 2
+    OBJ = 3

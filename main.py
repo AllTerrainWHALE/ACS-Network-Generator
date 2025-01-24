@@ -1,11 +1,13 @@
 import numpy as np
 import threading as th
 
-from src.environment import Environment, Visualiser
-from src.cell import Cell
 from time import time, sleep
 
-def environment_updater(env, iters, stop_event=None):
+from src.environment import Environment, Visualiser
+from src.colony import Colony
+from src.cell import Cell
+
+def environment_updater(env, colony, iters, stop_event=None):
     durations = [0]
     iter = 0
     # x,y = 250,125
@@ -34,21 +36,20 @@ def environment_updater(env, iters, stop_event=None):
 
     print(
 
-        f" " + f"_"*35 + f" ",
-        f"|{'RESULTS':^35}|",
-        f"|" + f" "*35 + f"|",
+        f" " + f"_"*37 + f" ",
+        f"|{'RESULTS':^37}|",
+        f"|" + f" "*37 + f"|",
 
-        f"|{'Average':>16} : {round(average_dur, 6):<16}|",
-        f"|{'UPS':>16} : {round(ups, 0):<16}|",
-        f"|" + f"_"*35 + f"|",
+        f"|{'Average':>17} : {round(average_dur, 6):<17}|",
+        f"|{'UPS':>17} : {round(ups, 0):<17}|",
+        f"|" + f"_"*37 + f"|",
 
         sep='\n',
         end='\n\n'
     )
 
-def environment_visualiser(env, stop_event):
-
-    env_vis = Visualiser(env, fps=30, screen_res=(1440,1440))
+def environment_visualiser(env, res, stop_event):
+    env_vis = Visualiser(env, fps=15, screen_res=res)
 
     try:
         env_vis.main()
@@ -61,31 +62,40 @@ def environment_visualiser(env, stop_event):
 
 
 if __name__ == '__main__':
-    grid_res = (500,500)
-    agents = 1
+
+    env_res = (500,500)
+    env_vis_res = (1440,1440)
+
+    colonies = 1
+    agents_per_colony = 50
     updates = -1
 
     print("",
         
-        f" " + f"_"*35 + f" ",
-        f"|{'SETTINGS':^35}|",
-        f"|" + f" "*35 + f"|",
+        f" " + f"_"*37 + f" ",
+        f"|{'SETTINGS':^37}|",
+        f"|" + f" "*37 + f"|",
         
-        f"|{'Resolution':>16} : {' x '.join(map(str, grid_res)):<16}|",
-        f"|{'Agents':>16} : {agents:<16}|",
-        f"|{'Updates':>16} : {updates:<16}|",
-        f"|" + f"_"*35 + f"|",
+        f"|{'Environment Size':>17} : {' x '.join(map(str, env_res)):<17}|",
+        f"|{'Vis. Resolution':>17} : {' x '.join(map(str, env_vis_res)):<17}|",
+        f"|" + f" "*37 + f"|",
+        f"|{'Colonies':>17} : {colonies:<17}|",
+        f"|{'Agents / Colony':>17} : {agents_per_colony:<17}|",
+        f"|{'Updates':>17} : {updates:<17}|",
+        f"|" + f"_"*37 + f"|",
 
         sep='\n',
         end='\n\n'
     )
 
-    env = Environment(grid_res, agents)
+    env = Environment(env_res)
+    env.colonies = [Colony(env, (int(env_res[0]/2),int(env_res[1]/2)), agents_per_colony)]
+
     # env.grid[100:150,100:150] = Cell.setState(env.grid[100:150,100:150], 1)
     # env.grid[2,2] = Cell.setPheroB(env.grid[2,2], 1000)
 
-    print(f"{'INITIAL GRID':^34}")
-    print(np.array([[Cell.getPheroA(cx) for cx in cy] for cy in env.grid]), end='\n\n')
+    # print(f"{'INITIAL GRID':^34}")
+    # print(np.array([[Cell.getPheroA(cx) for cx in cy] for cy in env.grid]), end='\n\n')
     # print(np.array([[Cell.getPheroB(cx) for cx in cy] for cy in env.grid]), end='\n\n')
 
     answer = None
@@ -100,8 +110,8 @@ if __name__ == '__main__':
         stop_event = th.Event()
 
         # Create threads
-        updater_thread = th.Thread(target=environment_updater, args=(env,updates,stop_event,))
-        visualiser_thread = th.Thread(target=environment_visualiser, args=(env,stop_event,))
+        updater_thread = th.Thread(target=environment_updater, args=(env,colonies,updates,stop_event,))
+        visualiser_thread = th.Thread(target=environment_visualiser, args=(env,env_vis_res,stop_event,))
 
         # Start threads
         updater_thread.start()
@@ -113,7 +123,7 @@ if __name__ == '__main__':
 
     else:
         if updates < 0:
-            print(f"> A count of {updates} updates will result in an infinite loop. Please select an alternative count")
+            print(f"> A count of {updates} updates will result in an infinite loop. Please set an alternative count")
         else:
             environment_updater(env, updates)
 

@@ -1,8 +1,9 @@
 import numpy as np
+import threading as th
 
 from math import pi, radians, degrees
 
-from src.cell import Cell
+from src.cell import Cell, State
 
 #? Print statement to stop the first output being merged with shit in the terminal startup
 #? IDK what the fuck goes on there
@@ -142,6 +143,31 @@ print()
 
 # print(arr1)
 
+#! Threading Testing
+# def func(num1, num2):
+#     print(num1+num2)
 
-print(f"{0x7FFFFFFF:>10}")
-print(f"{int(1e-6 * 0x7FFFFFFF):>10}")
+# thread = th.Thread(target=func, args=(4,5,))
+
+# thread.start()
+
+# thread.join()
+
+#! Circular Indexing Testing
+arr = np.zeros((10,10))
+pos = [5,5]
+radius = 3
+
+r,c = arr.shape
+y,x = np.ogrid[:r,:c]
+
+distance = (x - pos[0])**2 + (y - pos[1])**2 # distance^2 from circle center
+mask = distance <= radius**2
+
+arr[mask] = 1
+
+g = np.zeros((*arr.shape,3))
+
+g[arr==1] = arr[arr==1,np.newaxis] * np.array(((153,76,0)))
+
+print(g)
