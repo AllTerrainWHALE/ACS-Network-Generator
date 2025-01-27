@@ -1,7 +1,11 @@
 import numpy as np
 import threading as th
 
+import torch
+import torch.nn as nn
+
 from math import pi, radians, degrees
+from time import sleep
 
 from src.cell import Cell, State
 
@@ -154,20 +158,98 @@ print()
 # thread.join()
 
 #! Circular Indexing Testing
-arr = np.zeros((10,10))
-pos = [5,5]
-radius = 3
+# arr = np.zeros((10,10))
+# pos = [5,5]
+# radius = 3
 
-r,c = arr.shape
-y,x = np.ogrid[:r,:c]
+# r,c = arr.shape
+# y,x = np.ogrid[:r,:c]
 
-distance = (x - pos[0])**2 + (y - pos[1])**2 # distance^2 from circle center
-mask = distance <= radius**2
+# distance = (x - pos[0])**2 + (y - pos[1])**2 # distance^2 from circle center
+# mask = distance <= radius**2
 
-arr[mask] = 1
+# arr[mask] = 1
 
-g = np.zeros((*arr.shape,3))
+# g = np.zeros((*arr.shape,3))
 
-g[arr==1] = arr[arr==1,np.newaxis] * np.array(((153,76,0)))
+# g[arr==1] = arr[arr==1,np.newaxis] * np.array(((153,76,0)))
 
-print(g)
+# print(g)
+
+#! Neural Network Preditc Method Testing
+def new_genotype(layers, weight_bias_magnitude:float=.01):
+    # create genotype structured as:
+    #       [Ws_1,bs_1,Ws_2,bs_2,...,Ws_x,bs_x]
+    genotype = np.array([])
+    for i in range(1,len(layers)):
+        genotype = np.append(
+            genotype,
+            np.random.uniform(layers[i-1]*layers[i] + layers[i]) * weight_bias_magnitude
+        )
+    return torch.from_numpy(genotype)
+
+def predict(x,layers,genotype):
+    
+    start_idx = 0
+    for i in range(1,len(layers)):
+        
+        middle_idx = start_idx + len(x)*layers[i]
+        end_idx = middle_idx + layers[i]
+
+        Ws = genotype[start_idx:middle_idx]
+        bs = genotype[end_idx-layers[i]:end_idx]
+
+        Ws = torch.reshape(Ws, (len(x),layers[i]))
+
+        print(Ws, bs, sep=' | ')
+
+        x = torch.matmul(x,Ws) + bs
+
+        start_idx = end_idx
+
+    return x
+
+layers = [4,4,2]
+# input = torch.from_numpy(np.random.uniform(0,1,layers[0]))
+input = torch.rand(layers[0])
+genotype = new_genotype(layers)
+
+nn.Parameter
+
+print(genotype, end='\n\n')
+
+x = predict(input, layers, genotype)
+
+#! Progress Bar Testing
+# def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█', printEnd = "\r"):
+#     """
+#     Call in a loop to create terminal progress bar
+#     @params:
+#         iteration   - Required  : current iteration (Int)
+#         total       - Required  : total iterations (Int)
+#         prefix      - Optional  : prefix string (Str)
+#         suffix      - Optional  : suffix string (Str)
+#         decimals    - Optional  : positive number of decimals in percent complete (Int)
+#         length      - Optional  : character length of bar (Int)
+#         fill        - Optional  : bar fill character (Str)
+#         printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
+#     """
+#     percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
+#     filledLength = int(length * iteration // total)
+#     bar = fill * filledLength + '-' * (length - filledLength)
+#     print(f'\r{prefix} |{bar}| {percent}% {suffix}', end = printEnd)
+#     # Print New Line on Complete
+#     if iteration == total: 
+#         print()
+
+# # A List of Items
+# items = list(range(0, 57))
+# l = len(items)
+
+# # Initial call to print 0% progress
+# printProgressBar(0, l, prefix = 'Progress:', suffix = 'Complete', length = 50)
+# for i, item in enumerate(items):
+#     # Do stuff...
+#     sleep(0.1)
+#     # Update Progress Bar
+#     printProgressBar(i + 1, l, prefix = 'Progress:', suffix = 'Complete', length = 50)

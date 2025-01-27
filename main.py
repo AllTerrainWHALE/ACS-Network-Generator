@@ -1,11 +1,17 @@
 import numpy as np
 import threading as th
 
+import torch
+import torch.nn as nn
+import torch.optim as optim
+
 from time import time, sleep
 
 from src.environment import Environment, Visualiser
 from src.colony import Colony
+from src.agent import Agent
 from src.cell import Cell
+from src.utils import printProgressBar
 
 def environment_updater(env, colony, iters, stop_event=None):
     durations = [0]
@@ -64,10 +70,10 @@ def environment_visualiser(env, res, stop_event):
 if __name__ == '__main__':
 
     env_res = (500,500)
-    env_vis_res = (1440,1440)
+    env_vis_res = (1000,1000)
 
     colonies = 1
-    agents_per_colony = 50
+    agents_per_colony = 1
     updates = -1
 
     print("",
@@ -87,6 +93,29 @@ if __name__ == '__main__':
         sep='\n',
         end='\n\n'
     )
+
+
+    ### Train Pheromone Following Genotype ###
+    print("Training Pheromone Following Genotype...")
+
+    epochs = 1000
+    agent = Agent()
+
+    Ws, bs = [], []
+    for i in range(1, len(agent.layers)):
+        Ws.append(nn.Parameter(torch.rand(agent.layers[i-1], agent.layers[i])))
+        bs.append(nn.Parameter(torch.rand(1, agent.layers[i])))
+
+    print(*Ws, *bs, sep='\n\n')
+
+    loss_fn = nn.MSELoss()
+    optimizer = optim.SGD([*Ws, *bs], lr=.01)
+
+    for e in range(epochs):
+        printProgressBar(e, epochs-1)
+
+    exit()
+
 
     env = Environment(env_res)
     env.colonies = [Colony(env, (int(env_res[0]/2),int(env_res[1]/2)), agents_per_colony)]

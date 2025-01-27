@@ -1,6 +1,9 @@
 import numpy as np
 import threading as th
 
+import torch
+import torch.nn as nn
+
 from time import time, sleep
 from math import sin, cos, pi, radians, degrees
 
@@ -15,17 +18,55 @@ class Agent:
                 bearing:float=None,
                 speed:float=5,
 
+                inputs:int=10,
+                layers:list[int]=[4,2],
+                genotype:list[float]=None,
+
                 state:int=None
     ):
         self.pos = np.array(position, dtype=np.float64) # (x,y)
         self.bearing = bearing if bearing else np.random.uniform(0,2*pi)
         self.speed = speed
 
+        self.layers = layers.copy()
+        self.layers.insert(0, inputs)
+        self.genotype = np.array(genotype) if genotype != None else self.new_genotype()
+
         self.state = state if state != None else np.random.randint(0,2)
 
         self.timer = time()
 
         self.reward = 0x7FFFFFFF
+
+    def new_genotype(self, weight_bias_magnitude:float=.01):
+        # create genotype structured as:
+        #       [Ws_1,bs_1,Ws_2,bs_2,...,Ws_x,bs_x]
+        genotype = np.array([])
+        for i in range(1,len(self.layers)):
+            genotype = np.append(
+                genotype,
+                np.random.uniform(low=0,high=1,size=self.layers[i-1]*self.layers[i] + self.layers[i]) * weight_bias_magnitude
+            )
+        return genotype
+    
+    def predict(x,layers,genotype):
+    
+        start_idx = 0
+        for i in range(1,len(layers)):
+            
+            middle_idx = start_idx + len(x)*layers[i]
+            end_idx = middle_idx + layers[i]
+
+            Ws = genotype[start_idx:middle_idx]
+            bs = genotype[end_idx-layers[i]:end_idx]
+
+            Ws = np.reshape(Ws, (len(x),layers[i]))
+
+            x = np.matmul(x,Ws) + bs
+
+            start_idx = end_idx
+
+        return x
 
     def release_phero(self, surrounding):
         # return pheromone amount, and phero type (1 = A | 0 = B)
@@ -35,8 +76,8 @@ class Agent:
         neighbours = np.delete(surr_pheroX, 4)
 
         reward = self.reward #+ surr_pheroX[1,1]
-        if Cell.getState(surrounding[1,1]) in [1,2]:
-            reward = 0x7FFFFFFF
+        if Cell.getState(surrounding[1,1]) in [1,2]: pass
+            #! reward = 0x7FFFFFFF
             #! self.state = not self.state
 
         phero_val = np.uint32(reward + Agent.learning_rate * np.amax(neighbours))
