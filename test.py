@@ -177,79 +177,73 @@ print()
 # print(g)
 
 #! Neural Network Preditc Method Testing
-def new_genotype(layers, weight_bias_magnitude:float=.01):
-    # create genotype structured as:
-    #       [Ws_1,bs_1,Ws_2,bs_2,...,Ws_x,bs_x]
-    genotype = np.array([])
-    for i in range(1,len(layers)):
-        genotype = np.append(
-            genotype,
-            np.random.uniform(layers[i-1]*layers[i] + layers[i]) * weight_bias_magnitude
-        )
-    return torch.from_numpy(genotype)
+# def new_genotype(layers, weight_bias_magnitude:float=.01):
+#     # create genotype structured as:
+#     #       [Ws_1,bs_1,Ws_2,bs_2,...,Ws_x,bs_x]
+#     genotype = np.array([])
+#     for i in range(1,len(layers)):
+#         genotype = np.append(
+#             genotype,
+#             np.random.uniform(layers[i-1]*layers[i] + layers[i]) * weight_bias_magnitude
+#         )
+#     return torch.from_numpy(genotype)
 
-def predict(x,layers,genotype):
+# def predict(x,layers,genotype):
     
-    start_idx = 0
-    for i in range(1,len(layers)):
+#     start_idx = 0
+#     for i in range(1,len(layers)):
         
-        middle_idx = start_idx + len(x)*layers[i]
-        end_idx = middle_idx + layers[i]
+#         middle_idx = start_idx + len(x)*layers[i]
+#         end_idx = middle_idx + layers[i]
 
-        Ws = genotype[start_idx:middle_idx]
-        bs = genotype[end_idx-layers[i]:end_idx]
+#         Ws = genotype[start_idx:middle_idx]
+#         bs = genotype[end_idx-layers[i]:end_idx]
 
-        Ws = torch.reshape(Ws, (len(x),layers[i]))
+#         Ws = torch.reshape(Ws, (len(x),layers[i]))
 
-        print(Ws, bs, sep=' | ')
+#         print(Ws, bs, sep=' | ')
 
-        x = torch.matmul(x,Ws) + bs
+#         x = torch.matmul(x,Ws) + bs
 
-        start_idx = end_idx
+#         start_idx = end_idx
 
-    return x
+#     return x
 
-layers = [4,4,2]
-# input = torch.from_numpy(np.random.uniform(0,1,layers[0]))
-input = torch.rand(layers[0])
-genotype = new_genotype(layers)
+# layers = [4,4,2]
+# # input = torch.from_numpy(np.random.uniform(0,1,layers[0]))
+# input = torch.rand(layers[0])
+# genotype = new_genotype(layers)
 
-nn.Parameter
+# nn.Parameter
 
-print(genotype, end='\n\n')
+# print(genotype, end='\n\n')
 
-x = predict(input, layers, genotype)
+# x = predict(input, layers, genotype)
 
-#! Progress Bar Testing
-# def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█', printEnd = "\r"):
-#     """
-#     Call in a loop to create terminal progress bar
-#     @params:
-#         iteration   - Required  : current iteration (Int)
-#         total       - Required  : total iterations (Int)
-#         prefix      - Optional  : prefix string (Str)
-#         suffix      - Optional  : suffix string (Str)
-#         decimals    - Optional  : positive number of decimals in percent complete (Int)
-#         length      - Optional  : character length of bar (Int)
-#         fill        - Optional  : bar fill character (Str)
-#         printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
-#     """
-#     percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
-#     filledLength = int(length * iteration // total)
-#     bar = fill * filledLength + '-' * (length - filledLength)
-#     print(f'\r{prefix} |{bar}| {percent}% {suffix}', end = printEnd)
-#     # Print New Line on Complete
-#     if iteration == total: 
-#         print()
+#! Adding element to torch.Tensor
+arr1 = torch.rand(8) * 0x7FFFFFFF
+arr2 = torch.Tensor([
+    np.random.uniform(0,2*pi),
+    np.random.randint(0,2)
+    ])
+# bearing = np.random.uniform(0,2*pi)
+# state = np.random.randint(0,2)
 
-# # A List of Items
-# items = list(range(0, 57))
-# l = len(items)
+arr3 = torch.cat((arr2, arr1))
 
-# # Initial call to print 0% progress
-# printProgressBar(0, l, prefix = 'Progress:', suffix = 'Complete', length = 50)
-# for i, item in enumerate(items):
-#     # Do stuff...
-#     sleep(0.1)
-#     # Update Progress Bar
-#     printProgressBar(i + 1, l, prefix = 'Progress:', suffix = 'Complete', length = 50)
+print(arr1, arr2, arr3, sep='\n\n', end='\n\n')
+
+arr4 = np.array((*arr3[2:6], 0, *arr3[6:]))
+
+print(arr4)
+
+#! Bearing left and right testing
+# init_bearing, final_bearing = 0, pi#np.random.uniform(0, 2*pi, 2)
+# print(init_bearing, final_bearing)
+
+# #// delta_dearing = final_bearing - init_bearing
+# delta_bearing = (final_bearing - init_bearing + pi) % (2*pi) - pi
+
+# left, right = max(delta_bearing,0), max(-delta_bearing,0)
+
+# print(delta_bearing, (left,right), sep='\n')

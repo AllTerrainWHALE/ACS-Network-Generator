@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 from time import time, sleep
+from math import pi
 
 from src.environment import Environment, Visualiser
 from src.colony import Colony
@@ -73,7 +74,7 @@ if __name__ == '__main__':
     env_vis_res = (1000,1000)
 
     colonies = 1
-    agents_per_colony = 1
+    agents_per_colony = 20
     updates = -1
 
     print("",
@@ -96,23 +97,105 @@ if __name__ == '__main__':
 
 
     ### Train Pheromone Following Genotype ###
+    epochs = 10000
+    examples = 100
+    test_agent = Agent()
+    train_agent = Agent()
+
     print("Training Pheromone Following Genotype...")
+    printProgressBar(
+            iteration=0, total=epochs-1,
+            prefix='Progress', suffix=f'Loss: 0',
+            length=50
+        )
+    
+    # Prepare random training conditions
+    inputs = [torch.cat((
+        torch.rand(1) * 2*pi,       # Bearing
+        torch.randint(0,2,(1,)),    # State
+        torch.rand(8) * 0x7FFFFFFF  # Neighbouring cells
+    )) for i in range(examples)]
 
-    epochs = 1000
-    agent = Agent()
-
-    Ws, bs = [], []
-    for i in range(1, len(agent.layers)):
-        Ws.append(nn.Parameter(torch.rand(agent.layers[i-1], agent.layers[i])))
-        bs.append(nn.Parameter(torch.rand(1, agent.layers[i])))
-
-    print(*Ws, *bs, sep='\n\n')
+    # Ws, bs = [], []
+    # for i in range(1, len(test_agent.layers)):
+    #     Ws.append(nn.Parameter(torch.rand(test_agent.layers[i-1], test_agent.layers[i])))
+    #     bs.append(nn.Parameter(torch.rand(1, test_agent.layers[i])))
 
     loss_fn = nn.MSELoss()
-    optimizer = optim.SGD([*Ws, *bs], lr=.01)
+    optimizer = optim.SGD((*test_agent.Ws, *test_agent.bs), lr=.001)
 
     for e in range(epochs):
-        printProgressBar(e, epochs-1)
+        # Create random conditions
+        # x = torch.cat((
+        #     torch.rand(1) * 2*pi,       # Bearing
+        #     torch.randint(0,2,(1,)),    # State
+        #     torch.rand(8) * 0x7FFFFFFF  # Neighbouring cells
+        # ))
+
+        for i in inputs:
+
+            surrounding = np.array((
+                *i[2:6],
+                0,  # insert dummy cell
+                *i[6:]
+            ))
+
+            # Prepare testing and training agents with random condition
+            test_agent.bearing = float(i[0])
+            train_agent.bearing = float(i[0])
+            
+            test_agent.state = int(i[1])
+            train_agent.state = int(i[1])
+
+            
+            x = i.unsqueeze(0).float()
+
+            # Clear optimizer gradients
+            optimizer.zero_grad()
+
+            # Get testing and training results
+            y_hat = test_agent.predict(x)
+
+            translation, bearing = train_agent.follow_phero(surrounding)
+            bearing = (bearing + pi) % (2*pi) - pi
+            y = torch.tensor([[max(bearing,0), max(-bearing,0)]])
+
+            # Calculate loss
+            loss = loss_fn(y_hat, y)
+
+            # Calculate gradients
+            grad = loss.backward()
+
+            # Update weights & biases
+            optimizer.step()
+
+            # print(optimizer.param_groups[0]['params'])
+
+            # Update test Agent's genotype
+            Ws_and_bs = optimizer.param_groups[0]['params']
+
+            new_genotype = []
+            for n in range(int(len(Ws_and_bs)/2)):
+                Wss = Ws_and_bs[n]
+                bss = Ws_and_bs[int(len(Ws_and_bs)/2) + n]
+
+                # Ws = [w.item() for Ws in Wss for w in Ws]
+                # bs = [b.item() for bs in bss for b in bs]
+
+                #// print([w.item() for W in Ws for w in W], end='\n-----------\n')
+                new_genotype += [
+                    *[w.item() for Ws in Wss for w in Ws],
+                    *[b.item() for bs in bss for b in bs]
+                ]
+            test_agent.genotype = np.array(new_genotype)
+
+        if e % 1 == 0:
+            printProgressBar(
+                iteration=e, total=epochs-1,
+                prefix='Progress', suffix=f'Loss: {loss}',
+                length=50
+            )
+    
 
     exit()
 
@@ -129,7 +212,7 @@ if __name__ == '__main__':
 
     answer = None
     while answer not in ['y','n']:
-        answer = input("> Do you want the visual environment? (Y/N)\n").lower()
+        answer = i("> Do you want the visual environment? (Y/N)\n").lower()
         print()
 
         if answer not in ['y','n']:

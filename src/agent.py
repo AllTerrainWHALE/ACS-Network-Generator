@@ -9,7 +9,7 @@ from math import sin, cos, pi, radians, degrees
 
 from src.cell import Cell
 
-class Agent:
+class Agent(nn.Module):
 
     learning_rate = 1
      
@@ -24,13 +24,20 @@ class Agent:
 
                 state:int=None
     ):
+        super(Agent, self).__init__()
+
         self.pos = np.array(position, dtype=np.float64) # (x,y)
         self.bearing = bearing if bearing else np.random.uniform(0,2*pi)
         self.speed = speed
 
         self.layers = layers.copy()
         self.layers.insert(0, inputs)
+
         self.genotype = np.array(genotype) if genotype != None else self.new_genotype()
+        
+        Ws,bs = self.get_weights_and_biases()
+        self.Ws = nn.ParameterList(Ws)
+        self.bs = nn.ParameterList(bs)
 
         self.state = state if state != None else np.random.randint(0,2)
 
@@ -49,6 +56,28 @@ class Agent:
             )
         return genotype
     
+    def get_weights_and_biases(self):
+        
+        Wss = []
+        bss = []
+        start_idx = 0
+        for i in range(1,len(self.layers)):
+            
+            middle_idx = start_idx + self.layers[i-1]*self.layers[i]
+            end_idx = middle_idx + self.layers[i]
+
+            Ws = self.genotype[start_idx:middle_idx]
+            bs = self.genotype[end_idx-self.layers[i]:end_idx]
+
+            Wss.append(nn.Parameter(torch.Tensor(Ws)))
+            bss.append(nn.Parameter(torch.Tensor(bs)))
+
+            start_idx = end_idx
+
+        return Wss, bss
+
+    
+    @staticmethod
     def predict(x,layers,genotype):
     
         start_idx = 0
@@ -66,6 +95,11 @@ class Agent:
 
             start_idx = end_idx
 
+        return x
+    
+    def predict(self, x):
+        for W,b in zip(self.Ws,self.bs):
+            x = torch.mm(x, W) + b
         return x
 
     def release_phero(self, surrounding):
@@ -87,12 +121,12 @@ class Agent:
 
         return phero_val, self.state
     
-    def follow_phero(self, surrounding, dt:float=1):
-        if time() - self.timer >= 10:
-            self.state = not self.state
-            self.timer = time()
-            self.reward = 0x7FFFFFFF
-            print("SWITCH!")
+    def follow_phero(self, surrounding:np.ndarray, dt:float=1):
+        # if time() - self.timer >= 10:
+        #     self.state = not self.state
+        #     self.timer = time()
+        #     self.reward = 0x7FFFFFFF
+        #     print("SWITCH!")
 
 
         # surrounding = list(map(Cell.getPheroA if self.state == 0 else Cell.getPheroB, surrounding))
@@ -120,7 +154,7 @@ class Agent:
         # Fully discourage random exploration from selecting an out-of-bounds space
         t_probs[neighbours == -np.inf] = 0
 
-        if np.random.rand() > dt/5:
+        if np.random.rand() > 0:#dt/5:
 
             # index = np.random.choice(
             indices = np.argwhere(
@@ -147,11 +181,14 @@ class Agent:
         translation = np.array(((index % 3) - 1, (index // 3) - 1))
         new_bearing = np.arctan2(-translation[1], translation[0]) % (2*pi)
 
+        delta_bearing = new_bearing - self.bearing
         self.bearing = new_bearing
 
         #// print(translation, index)
 
         self.pos += np.clip(translation * dt * self.speed, -1, 1)
+
+        return translation, delta_bearing
     
     def get_pos(self):
         return np.array([int(a) for a in self.pos])
