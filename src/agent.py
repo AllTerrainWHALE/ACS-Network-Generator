@@ -7,9 +7,10 @@ import torch.nn as nn
 from time import time, sleep
 from math import sin, cos, pi, radians, degrees
 
+from src.agentnn import AgentNN
 from src.cell import Cell
 
-class Agent(nn.Module):
+class Agent(AgentNN):
 
     learning_rate = 1
      
@@ -18,26 +19,16 @@ class Agent(nn.Module):
                 bearing:float=None,
                 speed:float=5,
 
-                inputs:int=10,
-                layers:list[int]=[4,2],
+                layers:list[int]=[10,4,2],
                 genotype:list[float]=None,
 
                 state:int=None
     ):
-        super(Agent, self).__init__()
+        super().__init__(layers, genotype)
 
         self.pos = np.array(position, dtype=np.float64) # (x,y)
         self.bearing = bearing if bearing else np.random.uniform(0,2*pi)
         self.speed = speed
-
-        self.layers = layers.copy()
-        self.layers.insert(0, inputs)
-
-        self.genotype = np.array(genotype) if genotype != None else self.new_genotype()
-        
-        Ws,bs = self.get_weights_and_biases()
-        self.Ws = nn.ParameterList(Ws)
-        self.bs = nn.ParameterList(bs)
 
         self.state = state if state != None else np.random.randint(0,2)
 
@@ -45,62 +36,16 @@ class Agent(nn.Module):
 
         self.reward = 0x7FFFFFFF
 
-    def new_genotype(self, weight_bias_magnitude:float=.01):
-        # create genotype structured as:
-        #       [Ws_1,bs_1,Ws_2,bs_2,...,Ws_x,bs_x]
-        genotype = np.array([])
-        for i in range(1,len(self.layers)):
-            genotype = np.append(
-                genotype,
-                np.random.uniform(low=0,high=1,size=self.layers[i-1]*self.layers[i] + self.layers[i]) * weight_bias_magnitude
-            )
-        return genotype
-    
-    def get_weights_and_biases(self):
-        
-        Wss = []
-        bss = []
-        start_idx = 0
-        for i in range(1,len(self.layers)):
-            
-            middle_idx = start_idx + self.layers[i-1]*self.layers[i]
-            end_idx = middle_idx + self.layers[i]
-
-            Ws = self.genotype[start_idx:middle_idx]
-            bs = self.genotype[end_idx-self.layers[i]:end_idx]
-
-            Wss.append(nn.Parameter(torch.Tensor(Ws)))
-            bss.append(nn.Parameter(torch.Tensor(bs)))
-
-            start_idx = end_idx
-
-        return Wss, bss
-
-    
-    @staticmethod
-    def predict(x,layers,genotype):
-    
-        start_idx = 0
-        for i in range(1,len(layers)):
-            
-            middle_idx = start_idx + len(x)*layers[i]
-            end_idx = middle_idx + layers[i]
-
-            Ws = genotype[start_idx:middle_idx]
-            bs = genotype[end_idx-layers[i]:end_idx]
-
-            Ws = np.reshape(Ws, (len(x),layers[i]))
-
-            x = np.matmul(x,Ws) + bs
-
-            start_idx = end_idx
-
-        return x
-    
-    def predict(self, x):
-        for W,b in zip(self.Ws,self.bs):
-            x = torch.mm(x, W) + b
-        return x
+    # def new_genotype(self, weight_bias_magnitude:float=.01):
+    #     # create genotype structured as:
+    #     #       [Ws_1,bs_1,Ws_2,bs_2,...,Ws_x,bs_x]
+    #     genotype = np.array([])
+    #     for i in range(1,len(self.layers)):
+    #         genotype = np.append(
+    #             genotype,
+    #             np.random.uniform(low=0,high=1,size=self.layers[i-1]*self.layers[i] + self.layers[i]) * weight_bias_magnitude
+    #         )
+    #     return genotype
 
     def release_phero(self, surrounding):
         # return pheromone amount, and phero type (1 = A | 0 = B)

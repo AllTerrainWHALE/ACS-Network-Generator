@@ -61,6 +61,12 @@ class Cell:
     def getAll(whole_val):
         return Cell.getState(whole_val), Cell.getPheroA(whole_val), Cell.getPheroB(whole_val)
     
+
+
+    @staticmethod
+    def normalize(whole_val):
+        return whole_val / 0xFFFFFFFFFFFFFFFF
+    
 class State:
     NONE = 0
     FOOD = 1

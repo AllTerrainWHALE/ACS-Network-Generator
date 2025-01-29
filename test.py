@@ -221,21 +221,21 @@ print()
 # x = predict(input, layers, genotype)
 
 #! Adding element to torch.Tensor
-arr1 = torch.rand(8) * 0x7FFFFFFF
-arr2 = torch.Tensor([
-    np.random.uniform(0,2*pi),
-    np.random.randint(0,2)
-    ])
-# bearing = np.random.uniform(0,2*pi)
-# state = np.random.randint(0,2)
+# arr1 = torch.rand(8) * 0x7FFFFFFF
+# arr2 = torch.Tensor([
+#     np.random.uniform(0,2*pi),
+#     np.random.randint(0,2)
+#     ])
+# # bearing = np.random.uniform(0,2*pi)
+# # state = np.random.randint(0,2)
 
-arr3 = torch.cat((arr2, arr1))
+# arr3 = torch.cat((arr2, arr1))
 
-print(arr1, arr2, arr3, sep='\n\n', end='\n\n')
+# print(arr1, arr2, arr3, sep='\n\n', end='\n\n')
 
-arr4 = np.array((*arr3[2:6], 0, *arr3[6:]))
+# arr4 = np.array((*arr3[2:6], 0, *arr3[6:]))
 
-print(arr4)
+# print(arr4)
 
 #! Bearing left and right testing
 # init_bearing, final_bearing = 0, pi#np.random.uniform(0, 2*pi, 2)
@@ -247,3 +247,9 @@ print(arr4)
 # left, right = max(delta_bearing,0), max(-delta_bearing,0)
 
 # print(delta_bearing, (left,right), sep='\n')
+
+losses = np.zeros((10000,10))
+
+print(losses.shape[0])
+
+print(np.arange(losses.shape[0]))
