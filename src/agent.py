@@ -1,8 +1,8 @@
+from typing import Union
 import numpy as np
 import threading as th
 
 import torch
-import torch.nn as nn
 
 from time import time, sleep
 from math import sin, cos, pi, radians, degrees
@@ -20,7 +20,7 @@ class Agent(AgentNN):
                 speed:float=5,
 
                 layers:list[int]=[10,4,2],
-                genotype:list[float]=None,
+                genotype:tuple[float,...]=None,
 
                 state:int=None
     ):
@@ -72,92 +72,114 @@ class Agent(AgentNN):
         #     self.timer = time()
         #     self.reward = 0x7FFFFFFF
         #     print("SWITCH!")
+        batch_mode = surrounding.ndim == 2  # Check if input is batch (2D) or single (1D)
 
+        if not batch_mode:
+            surrounding = surrounding[np.newaxis, :]  # Convert to batch (1, 9)
 
-        # surrounding = list(map(Cell.getPheroA if self.state == 0 else Cell.getPheroB, surrounding))
         states,pheroA,pheroB = np.vectorize(lambda a: Cell.getAll(a))(surrounding)
 
-        surr_pheros = pheroA if self.state == 0 else pheroB
+        surr_pheros = np.where(np.expand_dims(self.state, axis=-1) == 0, pheroA, pheroB)
         surr_pheros = np.where(states == 3, -np.inf, surr_pheros)
 
-        neighbours = np.delete(surr_pheros, 4)
+        neighbours = np.delete(surr_pheros, 4, axis=1)
 
-        t_probs = np.full(8,0.1)
+        t_probs = np.full_like(neighbours,0.1)
 
         #// print(neighbours, t_probs, sep='\n', end='\n\n')
 
         # Calc favoured translation from current bearing
-        x,y = round(np.cos(self.bearing)), round(-np.sin(self.bearing))
+        x,y = np.round(np.cos(self.bearing)).astype(int), np.round(-np.sin(self.bearing)).astype(int)
 
         # 1D index of neighbours
         heading_index = (y + 1) * 3 + (x + 1)
-        heading_index -= heading_index // 5 # account for deleted index 4
+        heading_index -= (heading_index >= 4) # account for deleted index 4
 
         # Favour the space that the agent is facing
-        t_probs[heading_index] += 0.2
+        t_probs[np.arange(len(t_probs)), heading_index] += 0.2
 
         # Fully discourage random exploration from selecting an out-of-bounds space
         t_probs[neighbours == -np.inf] = 0
 
         if np.random.rand() > 0:#dt/5:
 
-            # index = np.random.choice(
             indices = np.argwhere(
                 neighbours == np.amax(
-                    neighbours
+                    np.expand_dims(neighbours,axis=-1),
+                    axis=1
                 )
-            ).flatten()
-            # )
-            t_probs[indices] += 0.4
+            )
 
-            index = np.argmax(t_probs)
+            t_probs_before = t_probs.copy()
+
+            t_probs[indices[:,0], indices[:,1]] += 0.4
+
+            #// print(*zip(t_probs_before,t_probs,indices), sep='\n')
+
+            index = np.argmax(t_probs, axis=1)
             
             # index = np.argmax(neighbours)
         
         else:
-            # t_probs = np.where(t_probs!=0, 0.1, 0)
-            index = np.random.choice(np.arange(8), p=t_probs/np.sum(t_probs))
-            #// print('> Random Move!')
+            # Normalize probabilities for each batch
+            t_probs /= t_probs.sum(axis=1, keepdims=True)  # Ensure each row sums to 1
+            
+            # Vectorized random choice (for batch processing)
+            index = np.array([np.random.choice(8, p=t_probs[i]) for i in range(t_probs.shape[0])])
 
         # print(neighbours, t_probs, sep='\n', end='\n\n')
 
-        index += index // 4 # Account for (1,1) being removed
+        index += (index >= 4) # Account for (1,1) being removed
 
-        translation = np.array(((index % 3) - 1, (index // 3) - 1))
-        new_bearing = np.arctan2(-translation[1], translation[0]) % (2*pi)
+        translation = np.stack(((index % 3) - 1, (index // 3) - 1), axis=1)
+        new_bearing = np.arctan2(-translation[:, 1], translation[:, 0]) % (2 * np.pi)
 
         delta_bearing = new_bearing - self.bearing
         self.bearing = new_bearing
 
         #// print(translation, index)
 
-        self.pos += np.clip(translation * dt * self.speed, -1, 1)
+        # Update position (only in single mode)
+        if not batch_mode:
+            self.pos += np.clip(translation[0] * dt * self.speed, -1, 1)
+            return translation[0], delta_bearing[0]  # Return single values
 
-        return translation, delta_bearing
+        return translation, delta_bearing  # Return batch results
     
     def get_pos(self):
         return np.array([int(a) for a in self.pos])
 
-    def update(self, surr:list[float], dt:float=1):
+    def update(self, surrounding:list[float], dt:float=1):
 
-        self.bearing += radians(10) * dt
+        inp = torch.cat([
+            torch.Tensor([self.bearing]),
+            torch.Tensor([self.state]),
+            torch.DoubleTensor(
+                np.delete([Cell.normalize(s) for surr in surrounding for s in surr], 4)
+            )
+        ])
 
-        # Bouncing off of top and bottom bounds
-        if any(np.array_equal([-1, -1, -1], edge) for edge in surr[(0,-1),:]):
-            # normal_angle = surface angle->(pi/2) + pi / 2 = pi
-            self.bearing = 2 * pi - self.bearing
-            self.bearing = self.bearing % (2*pi)
+        l,r = self.predict(inp) * dt
+        self.bearing += l
+        self.bearing -= r
 
-        # Bouncing off of left and right bounds
-        elif any(np.array_equal([-1, -1, -1], edge) for edge in surr[:,(0,-1)].T):
-            # normal_angle = surface angle->(pi) + pi / 2 = pi * 1.5
-            self.bearing = 2 * (pi*1.5) - self.bearing
-            self.bearing = self.bearing % (2*pi)
 
-        else:
-            self.bearing += pi * 0 * dt
+        # # Bouncing off of top and bottom bounds
+        # if any(np.array_equal([-1, -1, -1], edge) for edge in surr[(0,-1),:]):
+        #     # normal_angle = surface angle->(pi/2) + pi / 2 = pi
+        #     self.bearing = 2 * pi - self.bearing
+        #     self.bearing = self.bearing % (2*pi)
+
+        # # Bouncing off of left and right bounds
+        # elif any(np.array_equal([-1, -1, -1], edge) for edge in surr[:,(0,-1)].T):
+        #     # normal_angle = surface angle->(pi) + pi / 2 = pi * 1.5
+        #     self.bearing = 2 * (pi*1.5) - self.bearing
+        #     self.bearing = self.bearing % (2*pi)
+
+        # else:
+        #     self.bearing += pi * 0 * dt
 
         direction = np.array((cos(self.bearing), sin(self.bearing)))
-        new_pos = self.pos + direction * self.speed * dt
+        new_pos = self.pos + np.clip(direction * self.speed * dt, -1, 1)
 
         self.pos = new_pos

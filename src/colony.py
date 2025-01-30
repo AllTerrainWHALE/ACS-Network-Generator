@@ -1,6 +1,7 @@
 import numpy as np
 
 from math import sin, cos, sqrt, pi
+from torch import FloatTensor
 
 from src.environment import Environment
 from src.agent import Agent
@@ -14,6 +15,8 @@ class Colony:
             environment:Environment,
             nest_pos:tuple[int,int],
             colony_size:int,
+
+            base_genotype:FloatTensor=None,
 
             radius:int=5
     ):
@@ -41,7 +44,7 @@ class Colony:
 
             x,y = self.pos[0] + r * cos(theta), self.pos[1] + r * sin(theta)
 
-            self.agents = np.append(self.agents, Agent(position=(x,y), state=1))
+            self.agents = np.append(self.agents, Agent(position=(x,y), state=1, genotype=base_genotype))
 
     def update(self,dt:float=1):
 

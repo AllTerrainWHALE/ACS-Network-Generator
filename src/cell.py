@@ -25,20 +25,30 @@ class Cell:
         - `State.OBJ = 3` -> Wall / Obstruction
         """
         # Clear the first 2 bits and set them
-        whole_val = (int(whole_val) & ~Cell.STATE_MASK) | ((new_val & 0b11) << 62)
+        whole_val = (int(whole_val) & ~Cell.STATE_MASK) | ((int(new_val) & 0b11) << 62)
         return whole_val
 
     @staticmethod
     def setPheroA(whole_val, new_val: int):
         # Clear the next 31 bits and set them
-        whole_val = (int(whole_val) & ~Cell.PHEROA_MASK) | ((new_val & 0x7FFFFFFF) << 31)
+        whole_val = (int(whole_val) & ~Cell.PHEROA_MASK) | ((int(new_val) & 0x7FFFFFFF) << 31)
         return whole_val
 
     @staticmethod
     def setPheroB(whole_val, new_val: int):
         # Clear the last 31 bits and set them
-        whole_val = (int(whole_val) & ~Cell.PHEROB_MASK) | (new_val & 0x7FFFFFFF)
+        whole_val = (int(whole_val) & ~Cell.PHEROB_MASK) | (int(new_val) & 0x7FFFFFFF)
         return whole_val
+    
+    @staticmethod
+    def setAll(whole_val, state, pheroA, pheroB):
+        return Cell.setState(
+            Cell.setPheroA(
+                Cell.setPheroB(whole_val, pheroB),
+                pheroA
+            ),
+            state
+        )
     
 
 

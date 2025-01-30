@@ -248,8 +248,6 @@ print()
 
 # print(delta_bearing, (left,right), sep='\n')
 
-losses = np.zeros((10000,10))
-
-print(losses.shape[0])
-
-print(np.arange(losses.shape[0]))
+arr = np.random.randint(0,10,(3,3))
+print(arr)
+print(np.delete(arr,4))
