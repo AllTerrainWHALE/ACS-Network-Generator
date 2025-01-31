@@ -19,12 +19,13 @@ class Agent(AgentNN):
                 bearing:float=None,
                 speed:float=5,
 
-                layers:list[int]=[10,4,2],
+                layers:list[int]=[10,8,4,2],
                 genotype:tuple[float,...]=None,
+                activation_func:str="relu",
 
                 state:int=None
     ):
-        super().__init__(layers, genotype)
+        super().__init__(layers, genotype, activation_func)
 
         self.pos = np.array(position, dtype=np.float64) # (x,y)
         self.bearing = bearing if bearing else np.random.uniform(0,2*pi)
@@ -72,7 +73,7 @@ class Agent(AgentNN):
         #     self.timer = time()
         #     self.reward = 0x7FFFFFFF
         #     print("SWITCH!")
-        batch_mode = surrounding.ndim == 2  # Check if input is batch (2D) or single (1D)
+        batch_mode = surrounding.ndim == 2 and np.shape(surrounding) != (3,3)  # Check if input is batch (2D) or single (1D)
 
         if not batch_mode:
             surrounding = surrounding[np.newaxis, :]  # Convert to batch (1, 9)
@@ -82,7 +83,7 @@ class Agent(AgentNN):
         surr_pheros = np.where(np.expand_dims(self.state, axis=-1) == 0, pheroA, pheroB)
         surr_pheros = np.where(states == 3, -np.inf, surr_pheros)
 
-        neighbours = np.delete(surr_pheros, 4, axis=1)
+        neighbours = np.delete(surr_pheros, 4, axis=1 if batch_mode else None)
 
         t_probs = np.full_like(neighbours,0.1)
 
@@ -96,7 +97,10 @@ class Agent(AgentNN):
         heading_index -= (heading_index >= 4) # account for deleted index 4
 
         # Favour the space that the agent is facing
-        t_probs[np.arange(len(t_probs)), heading_index] += 0.2
+        if batch_mode:
+            t_probs[np.arange(len(t_probs)), heading_index] += .2
+        else:
+            t_probs[heading_index] += .2
 
         # Fully discourage random exploration from selecting an out-of-bounds space
         t_probs[neighbours == -np.inf] = 0
@@ -110,13 +114,15 @@ class Agent(AgentNN):
                 )
             )
 
-            t_probs_before = t_probs.copy()
+            #// t_probs_before = t_probs.copy()
+            #// print(*zip(t_probs,indices), sep='\n')
+            if batch_mode:
+                t_probs[indices[:,0], indices[:,1]] += .4
+            else:
+                t_probs[indices] += .4
 
-            t_probs[indices[:,0], indices[:,1]] += 0.4
 
-            #// print(*zip(t_probs_before,t_probs,indices), sep='\n')
-
-            index = np.argmax(t_probs, axis=1)
+            index = np.argmax(t_probs, axis=1 if batch_mode else None)
             
             # index = np.argmax(neighbours)
         
@@ -131,8 +137,12 @@ class Agent(AgentNN):
 
         index += (index >= 4) # Account for (1,1) being removed
 
-        translation = np.stack(((index % 3) - 1, (index // 3) - 1), axis=1)
-        new_bearing = np.arctan2(-translation[:, 1], translation[:, 0]) % (2 * np.pi)
+        translation = np.stack(((index % 3) - 1, (index // 3) - 1), axis=1 if batch_mode else 0)
+        
+        if batch_mode:
+            new_bearing = np.arctan2(-translation[:, 1], translation[:, 0]) % (2 * np.pi)
+        else:
+            new_bearing = np.arctan2(-translation[1], translation[0]) % (2 * np.pi)
 
         delta_bearing = new_bearing - self.bearing
         self.bearing = new_bearing
@@ -141,8 +151,8 @@ class Agent(AgentNN):
 
         # Update position (only in single mode)
         if not batch_mode:
-            self.pos += np.clip(translation[0] * dt * self.speed, -1, 1)
-            return translation[0], delta_bearing[0]  # Return single values
+            self.pos += np.clip(translation * dt * self.speed, -1, 1)
+            return translation, delta_bearing  # Return single values
 
         return translation, delta_bearing  # Return batch results
     
@@ -150,6 +160,11 @@ class Agent(AgentNN):
         return np.array([int(a) for a in self.pos])
 
     def update(self, surrounding:list[float], dt:float=1):
+        if time() - self.timer >= 10:
+            self.state = not self.state
+            self.timer = time()
+            # self.reward = 0x7FFFFFFF
+            print("SWITCH!")
 
         inp = torch.cat([
             torch.Tensor([self.bearing]),
@@ -159,7 +174,7 @@ class Agent(AgentNN):
             )
         ])
 
-        l,r = self.predict(inp) * dt
+        l,r = self.predict(inp)
         self.bearing += l
         self.bearing -= r
 

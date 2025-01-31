@@ -248,6 +248,28 @@ print()
 
 # print(delta_bearing, (left,right), sep='\n')
 
-arr = np.random.randint(0,10,(3,3))
-print(arr)
-print(np.delete(arr,4))
+
+import matplotlib.pyplot as plt
+import random
+
+plt.ion()  # turning interactive mode on
+
+graph = plt.plot(0,0)[0]
+plt.ylim(0,10)
+plt.pause(1)
+
+# preparing the data
+y = [random.randint(1,10) for i in range(20)]
+x = [*range(1,21)]
+
+# plotting the first frame
+graph.remove()
+graph = plt.plot(x,y)[0]
+plt.pause(1)
+
+y += [random.randint(1,10) for i in range(20)]
+x += [*range(1,21)]
+
+graph.remove()
+graph = plt.plot(x,y)[0]
+plt.pause(1)

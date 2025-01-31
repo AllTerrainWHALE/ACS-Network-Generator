@@ -59,4 +59,4 @@ class Colony:
             #// print(f"{phero_type}: {phero_amount} - {Cell.getAll(self.grid[(*a.get_pos(),)])}")
 
             # Agent move
-            a.follow_phero(surr, dt)
+            a.update(surr, dt)

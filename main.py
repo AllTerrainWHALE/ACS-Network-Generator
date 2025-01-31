@@ -1,5 +1,6 @@
 import numpy as np
 import threading as th
+import matplotlib.pyplot as plt
 
 import torch
 import torch.nn as nn
@@ -75,7 +76,7 @@ if __name__ == '__main__':
     env_vis_res = (1000,1000)
 
     colonies = 1
-    agents_per_colony = 20
+    agents_per_colony = 1
     updates = -1
 
     print("",
@@ -98,8 +99,69 @@ if __name__ == '__main__':
 
 
     ### Train Pheromone Following Genotype ###
-    agent = Agent()
-    # AgentNN.train_follow_phero(agent, epochs=10000, random_states=100, progress_bar=True, loss_graph=True)
+    agent = Agent(activation_func='tanh')
+    AgentNN.train_follow_phero(agent, epochs=100000, random_states=100, lr=0.001, loss_graph=True, progress_bar=True)
+    input()
+    exit()
+
+    plt.ion()
+    fig, ax = plt.subplots(1,3, figsize=(15,5))
+
+    ax[0].set_title('relu')
+    ax[0].set_xlabel("Epochs")
+    ax[0].set_ylabel("Loss / State")
+    ax[0].set_ylim(0,5)
+
+    ax[1].set_title('sigmoid')
+    ax[1].set_xlabel("Epochs")
+    ax[1].set_ylabel("Loss / State")
+    ax[1].set_ylim(0,5)
+
+    ax[2].set_title('tanh')
+    ax[2].set_xlabel("Epochs")
+    ax[2].set_ylabel("Loss / State")
+    ax[2].set_ylim(0,5)
+
+    genotype = Agent().genotype
+
+    activation_funcs = ['tanh'] #'relu','sigmoid',
+    epochs = [100, 1000, 10000, 100000]
+    lrs = [.1, .01, .001, .0001, .00001]
+    random_states = [100, 1000]
+    
+    results = []
+
+    for rs in random_states:
+        for e in epochs:
+            for func in activation_funcs:
+                agent = Agent(genotype=genotype, activation_func=func)
+                _, losses = AgentNN.train_follow_phero(agent, epochs=e, random_states=rs, lr=0.001, loss_graph=False)
+
+                results.append({
+                    'func'   : func,
+                    'epochs' : e,
+                    'states' : rs,
+                    'losses' : np.mean(losses, axis=0)
+                })
+
+                result = results[-1]
+
+                x_vals = np.arange(result['epochs'])
+                y_vals = result['losses']
+
+                if result['func'] == 'relu':
+                    ax[0].plot(x_vals,y_vals,label=f"{result['epochs']} | {result['states']}")
+                elif result['func'] == 'sigmoid':
+                    ax[1].plot(x_vals,y_vals,label=f"{result['epochs']} | {result['states']}")
+                elif result['func'] == 'tanh':
+                    ax[2].plot(x_vals,y_vals,label=f"{result['epochs']} | {result['states']}")
+
+                ax[0].legend(title="Epochs | Stats")
+                ax[1].legend(title="Epochs | Stats")
+                ax[2].legend(title="Epochs | Stats")
+
+                fig.canvas.draw()
+                fig.canvas.flush_events()
 
     ### Initialize Environment and Colony ###
     env = Environment(env_res)
@@ -139,7 +201,7 @@ if __name__ == '__main__':
         if updates < 0:
             print(f"> A count of {updates} updates will result in an infinite loop. Please set an alternative count")
         else:
-            environment_updater(env, updates)
+            environment_updater(env, colonies, updates)
 
 
 
