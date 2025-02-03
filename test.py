@@ -221,21 +221,27 @@ print()
 # x = predict(input, layers, genotype)
 
 #! Adding element to torch.Tensor
-# arr1 = torch.rand(8) * 0x7FFFFFFF
-# arr2 = torch.Tensor([
-#     np.random.uniform(0,2*pi),
-#     np.random.randint(0,2)
-#     ])
-# # bearing = np.random.uniform(0,2*pi)
-# # state = np.random.randint(0,2)
+arr0 = torch.cat([
+    torch.rand(1) * 2*pi,   
+    torch.randint(0,2,(1,)),
+    torch.zeros(8, dtype=torch.float64)
+])
 
-# arr3 = torch.cat((arr2, arr1))
+arr1 = torch.rand(8) * 0x7FFFFFFF
+arr2 = torch.Tensor([
+    np.random.uniform(0,2*pi),
+    np.random.randint(0,2)
+    ])
+# bearing = np.random.uniform(0,2*pi)
+# state = np.random.randint(0,2)
 
-# print(arr1, arr2, arr3, sep='\n\n', end='\n\n')
+arr3 = torch.tensor([arr0, torch.cat((arr2, arr1))])
 
-# arr4 = np.array((*arr3[2:6], 0, *arr3[6:]))
+print(arr0, arr1, arr2, arr3, sep='\n\n', end='\n\n')
 
-# print(arr4)
+arr4 = np.array((*arr3[2:6], 0, *arr3[6:]))
+
+print(arr4)
 
 #! Bearing left and right testing
 # init_bearing, final_bearing = 0, pi#np.random.uniform(0, 2*pi, 2)
@@ -249,27 +255,3 @@ print()
 # print(delta_bearing, (left,right), sep='\n')
 
 
-import matplotlib.pyplot as plt
-import random
-
-plt.ion()  # turning interactive mode on
-
-graph = plt.plot(0,0)[0]
-plt.ylim(0,10)
-plt.pause(1)
-
-# preparing the data
-y = [random.randint(1,10) for i in range(20)]
-x = [*range(1,21)]
-
-# plotting the first frame
-graph.remove()
-graph = plt.plot(x,y)[0]
-plt.pause(1)
-
-y += [random.randint(1,10) for i in range(20)]
-x += [*range(1,21)]
-
-graph.remove()
-graph = plt.plot(x,y)[0]
-plt.pause(1)

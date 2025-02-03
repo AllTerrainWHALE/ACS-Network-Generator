@@ -8,6 +8,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from math import pi
 from typing import TYPE_CHECKING
+from decimal import Decimal
 
 from src.cell import Cell
 from src.utils import printProgressBar
@@ -100,8 +101,8 @@ class AgentNN (nn.Module):
         loss_fn = nn.MSELoss(reduction='none')
         losses = np.zeros((random_states,epochs))
 
-        optimizer = optim.SGD((*agent.weights.parameters(),)+(*agent.biases.parameters(),), lr=lr)
-        scheduler = ReduceLROnPlateau(optimizer, 'min')
+        optimizer = optim.SGD((*agent.weights.parameters(),)+(*agent.biases.parameters(),), lr=lr, momentum=0.9)
+        scheduler = ReduceLROnPlateau(optimizer, 'min', patience=5000, eps=0)
 
         # Prepare random training conditions
         inputs = torch.cat([
@@ -125,7 +126,7 @@ class AgentNN (nn.Module):
             )
             printProgressBar(
                 iteration=0, total=epochs-1,
-                prefix=f'\tEpoch: {0:0{len(str(epochs))}}', suffix=f'Loss: 0',
+                prefix=f'\tEpoch: {0:0{len(str(epochs))}}', suffix=f'Loss: 0.00E+0, Max: 0.00E+0',
                 length=50
             )
         
@@ -168,14 +169,16 @@ class AgentNN (nn.Module):
 
             # Calculate loss
             each_loss = loss_fn(y_hat, y)
+            # max_loss = torch.max(torch.mean(each_loss, dim=-1))
+
             losses[:,e] = np.mean(each_loss.detach().cpu().numpy(),axis=-1)
 
             # Calculate gradients
             each_loss.backward(gradient=torch.ones_like(each_loss))
 
             # Update weights & biases
-            if e > 10000:
-                scheduler.step(np.mean(losses[:,e]))
+            # if e > 10000:
+            scheduler.step(np.mean(losses[:,e]))
             optimizer.step()
 
             # Update loss graph
@@ -202,13 +205,13 @@ class AgentNN (nn.Module):
             if progress_bar and e % max(1,round(100/random_states)) == 0:
                 printProgressBar(
                     iteration=e, total=epochs-1,
-                    prefix=f'\tEpoch: {e+1:0{len(str(epochs))}}', suffix=f'Loss: {sum(losses[:,e])/len(losses[:,e])}',
+                    prefix=f'\tEpoch: {e+1:0{len(str(epochs))}}', suffix=f'Loss: {Decimal(sum(losses[:,e])/len(losses[:,e])):.2E}, Max: {Decimal(np.max(losses[:,e])):.2E}',
                     length=50
                 )
 
         if progress_bar: printProgressBar(
             iteration=e, total=epochs-1,
-            prefix=f'\tEpoch: {epochs}', suffix=f'Loss: {sum(losses[:,e])/len(losses[:,e])}',
+            prefix=f'\tEpoch: {epochs}', suffix=f'Loss: {Decimal(sum(losses[:,e])/len(losses[:,e])):.2E}, Max: {Decimal(np.max(losses[:,e])):.2E}',
             length=50
         ) ; print()
         # print(*list(zip(y_hat.detach().cpu().tolist(), y.detach().cpu().tolist())), sep='\n')

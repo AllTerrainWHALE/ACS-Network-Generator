@@ -99,8 +99,9 @@ if __name__ == '__main__':
 
 
     ### Train Pheromone Following Genotype ###
-    agent = Agent(activation_func='tanh')
+    agent = Agent(activation_func='sigmoid')
     AgentNN.train_follow_phero(agent, epochs=100000, random_states=100, lr=0.001, loss_graph=True, progress_bar=True)
+    print(agent.genotype)
     input()
     exit()
 
@@ -124,41 +125,41 @@ if __name__ == '__main__':
 
     genotype = Agent().genotype
 
-    activation_funcs = ['tanh'] #'relu','sigmoid',
-    epochs = [100, 1000, 10000, 100000]
+    activation_funcs = ['tanh', 'relu','sigmoid']
+    epochs = 100000# epochs = [100, 1000, 10000, 100000]
     lrs = [.1, .01, .001, .0001, .00001]
-    random_states = [100, 1000]
+    random_states = [100, 1000, 10000]
     
     results = []
 
     for rs in random_states:
-        for e in epochs:
+        for lr in lrs:
             for func in activation_funcs:
                 agent = Agent(genotype=genotype, activation_func=func)
-                _, losses = AgentNN.train_follow_phero(agent, epochs=e, random_states=rs, lr=0.001, loss_graph=False)
+                _, losses = AgentNN.train_follow_phero(agent, epochs=epochs, random_states=rs, lr=lr, loss_graph=False)
 
                 results.append({
                     'func'   : func,
-                    'epochs' : e,
+                    'lr' : lr,
                     'states' : rs,
                     'losses' : np.mean(losses, axis=0)
                 })
 
                 result = results[-1]
 
-                x_vals = np.arange(result['epochs'])
+                x_vals = np.arange(epochs)
                 y_vals = result['losses']
 
                 if result['func'] == 'relu':
-                    ax[0].plot(x_vals,y_vals,label=f"{result['epochs']} | {result['states']}")
+                    ax[0].plot(x_vals,y_vals,label=f"{result['lr']} | {result['states']}")
                 elif result['func'] == 'sigmoid':
-                    ax[1].plot(x_vals,y_vals,label=f"{result['epochs']} | {result['states']}")
+                    ax[1].plot(x_vals,y_vals,label=f"{result['lr']} | {result['states']}")
                 elif result['func'] == 'tanh':
-                    ax[2].plot(x_vals,y_vals,label=f"{result['epochs']} | {result['states']}")
+                    ax[2].plot(x_vals,y_vals,label=f"{result['lr']} | {result['states']}")
 
-                ax[0].legend(title="Epochs | Stats")
-                ax[1].legend(title="Epochs | Stats")
-                ax[2].legend(title="Epochs | Stats")
+                ax[0].legend(title="LR | States")
+                ax[1].legend(title="LR | States")
+                ax[2].legend(title="LR | States")
 
                 fig.canvas.draw()
                 fig.canvas.flush_events()
