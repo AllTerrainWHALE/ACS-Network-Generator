@@ -44,7 +44,7 @@ class Colony:
 
             x,y = self.pos[0] + r * cos(theta), self.pos[1] + r * sin(theta)
 
-            self.agents = np.append(self.agents, Agent(position=(x,y), state=1, genotype=base_genotype))
+            self.agents = np.append(self.agents, Agent(position=(x,y), state=a%2, genotype=base_genotype))
 
     def update(self,dt:float=1):
 

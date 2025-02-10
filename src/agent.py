@@ -20,8 +20,28 @@ class Agent(AgentNN):
                 speed:float=5,
 
                 layers:list[int]=[10,8,4,2],
-                genotype:tuple[float,...]=None,
-                activation_func:str="relu",
+                genotype:tuple[float,...]=[
+                    0.1643,  -1.9121,   1.5944,   3.0084,   2.9300,  -1.3188,  -5.6435,
+                   -1.1207,  -6.7068,  13.2495, -13.3776,   0.8839,  -8.9438,  -3.2684,
+                   -2.8342,  -7.2338,  -1.1386,   2.0257, -10.1124,   2.1708,   3.8349,
+                   -4.3874,   7.3665,   7.7275,  -2.3309,   2.6131,  -1.1979,  -0.3579,
+                   -6.2896,   6.8338,   1.1960,  -1.8479,  -8.7828,  -3.2830,   6.7781,
+                   -0.7022,  -6.0627,  -1.0542,   4.0895,   7.1702,  -5.6166,  -1.1680,
+                   -1.4099,  -2.6469,  -5.4377,   0.1143,   0.3085,   8.6710,   0.1529,
+                    9.5528, -14.4642,  -1.8137,   0.6463,  -6.1233,  -8.1975,   7.5079,
+                   25.5651,   6.5156,  -4.0340,  -3.5805,  -7.4343,  -5.8375,  10.9606,
+                  -20.5883,  -3.8097,   1.3978,   0.1682,   5.7081,   7.9531, -15.8373,
+                   -1.5991,  -5.5244,   0.8788,  -3.6709,   4.2530,  -2.9938,   9.4248,
+                   -2.5505,  -5.8964,   5.8206,  -3.8756,  -3.3751,   1.4252,  -1.7092,
+                   -5.2979,  11.9375,   2.3161,  -5.3447,  -7.3847,   3.5262,  -0.9650,
+                   -9.5526,  -6.8624,  -5.1511, -12.3318,  -3.8675,  -1.5227,   6.1460,
+                  -11.0559,  -7.6943,   2.8572,  -9.0164,  -4.8923,  -8.8885, -18.8021,
+                   -1.6255,  -2.9247,  -1.9842,  -6.7870,  -0.9132,  -9.4671,  -1.8929,
+                   -5.2352,  -4.3952,  -4.4597,   0.3902,  11.5250,   1.0827, -10.5244,
+                   -3.4773,   4.1247,   8.7506,  18.9527,  15.0209,  11.4850, -11.0210,
+                    8.9729,  -9.2783,  15.2756, -13.9489,   6.2456,  -7.8413, -21.4626,
+                   12.1025],
+                activation_func:str="sigmoid",
 
                 state:int=None
     ):
@@ -73,6 +93,7 @@ class Agent(AgentNN):
         #     self.timer = time()
         #     self.reward = 0x7FFFFFFF
         #     print("SWITCH!")
+
         batch_mode = surrounding.ndim == 2 and np.shape(surrounding) != (3,3)  # Check if input is batch (2D) or single (1D)
 
         if not batch_mode:
@@ -83,7 +104,9 @@ class Agent(AgentNN):
         surr_pheros = np.where(np.expand_dims(self.state, axis=-1) == 0, pheroA, pheroB)
         surr_pheros = np.where(states == 3, -np.inf, surr_pheros)
 
-        neighbours = np.delete(surr_pheros, 4, axis=1 if batch_mode else None)
+        surr_pheros = surr_pheros.reshape(len(surr_pheros),9)
+
+        neighbours = np.delete(surr_pheros, 4, axis=1)
 
         t_probs = np.full_like(neighbours,0.1)
 
@@ -97,10 +120,10 @@ class Agent(AgentNN):
         heading_index -= (heading_index >= 4) # account for deleted index 4
 
         # Favour the space that the agent is facing
-        if batch_mode:
-            t_probs[np.arange(len(t_probs)), heading_index] += .2
-        else:
-            t_probs[heading_index] += .2
+        # if batch_mode:
+        t_probs[np.arange(len(t_probs)), heading_index] += .2
+        # else:
+            # t_probs[heading_index] += .2
 
         # Fully discourage random exploration from selecting an out-of-bounds space
         t_probs[neighbours == -np.inf] = 0
@@ -116,10 +139,10 @@ class Agent(AgentNN):
 
             #// t_probs_before = t_probs.copy()
             #// print(*zip(t_probs,indices), sep='\n')
-            if batch_mode:
-                t_probs[indices[:,0], indices[:,1]] += .4
-            else:
-                t_probs[indices] += .4
+            # if batch_mode:
+            t_probs[indices[:,0], indices[:,1]] += .4
+            # else:
+            #     t_probs[indices] += .4
 
 
             index = np.argmax(t_probs, axis=1 if batch_mode else None)
@@ -150,9 +173,9 @@ class Agent(AgentNN):
         #// print(translation, index)
 
         # Update position (only in single mode)
-        if not batch_mode:
-            self.pos += np.clip(translation * dt * self.speed, -1, 1)
-            return translation, delta_bearing  # Return single values
+        # if not batch_mode:
+        #     self.pos += np.clip(translation * dt * self.speed, -1, 1)
+        #     return translation, delta_bearing  # Return single values
 
         return translation, delta_bearing  # Return batch results
     
@@ -163,7 +186,7 @@ class Agent(AgentNN):
         if time() - self.timer >= 10:
             self.state = not self.state
             self.timer = time()
-            # self.reward = 0x7FFFFFFF
+            self.reward = 0x7FFFFFFF
             print("SWITCH!")
 
         inp = torch.cat([
@@ -174,7 +197,21 @@ class Agent(AgentNN):
             )
         ])
 
-        l,r = self.predict(inp)
+        out = self.predict(inp).squeeze(0).detach().numpy().round(4)
+
+        gt_out = self.follow_phero(surrounding, dt)
+        b = (gt_out[1] + pi) % (2*pi) - pi
+        act = np.array([max(b, 0), max(-b, 0)]).round(4)
+
+        print(out, act)
+
+        # self.pos += np.clip(gt_out[0] * dt * self.speed, -1, 1)
+
+        # return
+
+
+
+        l,r = out
         self.bearing += l
         self.bearing -= r
 

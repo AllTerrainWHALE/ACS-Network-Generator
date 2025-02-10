@@ -1,11 +1,13 @@
 import numpy as np
 import threading as th
+import random
 
 import torch
 import torch.nn as nn
 
 from math import pi, radians, degrees
 from time import sleep
+from datetime import datetime
 
 from src.cell import Cell, State
 
@@ -221,27 +223,28 @@ print()
 # x = predict(input, layers, genotype)
 
 #! Adding element to torch.Tensor
-arr0 = torch.cat([
-    torch.rand(1) * 2*pi,   
-    torch.randint(0,2,(1,)),
-    torch.zeros(8, dtype=torch.float64)
+print()
+rand_general = torch.cat([
+    torch.cat((
+        torch.rand(1) * 2*pi,               # Bearing
+        torch.randint(0,2,(1,)),            # State
+        torch.rand(8, dtype=torch.float64) * 0xFFFFFFFFFFFFFFFF  # Neighbouring cells
+    )).unsqueeze(0) for i in range(5)
 ])
 
-arr1 = torch.rand(8) * 0x7FFFFFFF
-arr2 = torch.Tensor([
-    np.random.uniform(0,2*pi),
-    np.random.randint(0,2)
-    ])
-# bearing = np.random.uniform(0,2*pi)
-# state = np.random.randint(0,2)
+rand_empty_surr = torch.cat([
+    torch.cat((
+        torch.rand(1) * 2*pi,               # Bearing
+        torch.IntTensor([i%2]),             # State
+        torch.ones(8, dtype=torch.float64) * torch.rand(1, dtype=torch.float64) * 0xFFFFFFFFFFFFFFFF # Neighbouring cells
+    )).unsqueeze(0) for i in range(5)
+])
 
-arr3 = torch.tensor([arr0, torch.cat((arr2, arr1))])
+rand_all = torch.cat([rand_general, rand_empty_surr])
 
-print(arr0, arr1, arr2, arr3, sep='\n\n', end='\n\n')
+# print(rand_general, rand_empty_surr, rand_all, sep='\n\n')
 
-arr4 = np.array((*arr3[2:6], 0, *arr3[6:]))
-
-print(arr4)
+print(list(map(Cell.getAll, rand_empty_surr[0])))
 
 #! Bearing left and right testing
 # init_bearing, final_bearing = 0, pi#np.random.uniform(0, 2*pi, 2)
@@ -253,5 +256,3 @@ print(arr4)
 # left, right = max(delta_bearing,0), max(-delta_bearing,0)
 
 # print(delta_bearing, (left,right), sep='\n')
-
-
