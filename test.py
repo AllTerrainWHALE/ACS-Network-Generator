@@ -223,28 +223,28 @@ print()
 # x = predict(input, layers, genotype)
 
 #! Adding element to torch.Tensor
-print()
-rand_general = torch.cat([
-    torch.cat((
-        torch.rand(1) * 2*pi,               # Bearing
-        torch.randint(0,2,(1,)),            # State
-        torch.rand(8, dtype=torch.float64) * 0xFFFFFFFFFFFFFFFF  # Neighbouring cells
-    )).unsqueeze(0) for i in range(5)
-])
+# print()
+# rand_general = torch.cat([
+#     torch.cat((
+#         torch.rand(1) * 2*pi,               # Bearing
+#         torch.randint(0,2,(1,)),            # State
+#         torch.rand(8, dtype=torch.float64) * 0xFFFFFFFFFFFFFFFF  # Neighbouring cells
+#     )).unsqueeze(0) for i in range(5)
+# ])
 
-rand_empty_surr = torch.cat([
-    torch.cat((
-        torch.rand(1) * 2*pi,               # Bearing
-        torch.IntTensor([i%2]),             # State
-        torch.ones(8, dtype=torch.float64) * torch.rand(1, dtype=torch.float64) * 0xFFFFFFFFFFFFFFFF # Neighbouring cells
-    )).unsqueeze(0) for i in range(5)
-])
+# rand_empty_surr = torch.cat([
+#     torch.cat((
+#         torch.rand(1) * 2*pi,               # Bearing
+#         torch.IntTensor([i%2]),             # State
+#         torch.ones(8, dtype=torch.float64) * torch.rand(1, dtype=torch.float64) * 0xFFFFFFFFFFFFFFFF # Neighbouring cells
+#     )).unsqueeze(0) for i in range(5)
+# ])
 
-rand_all = torch.cat([rand_general, rand_empty_surr])
+# rand_all = torch.cat([rand_general, rand_empty_surr])
 
-# print(rand_general, rand_empty_surr, rand_all, sep='\n\n')
+# # print(rand_general, rand_empty_surr, rand_all, sep='\n\n')
 
-print(list(map(Cell.getAll, rand_empty_surr[0])))
+# print(list(map(Cell.getAll, rand_empty_surr[0])))
 
 #! Bearing left and right testing
 # init_bearing, final_bearing = 0, pi#np.random.uniform(0, 2*pi, 2)
@@ -256,3 +256,47 @@ print(list(map(Cell.getAll, rand_empty_surr[0])))
 # left, right = max(delta_bearing,0), max(-delta_bearing,0)
 
 # print(delta_bearing, (left,right), sep='\n')
+
+#! PyTorch vectorizing testing
+# random_states = 10
+
+# inputs = torch.cat([
+#     torch.cat((
+#         torch.rand(1) * 2*pi,       # Bearing
+#         torch.IntTensor([i%2]),     # State
+#         torch.rand(8, dtype=torch.float64) * 0xFFFFFFFFFFFFFFFF  # Neighbouring cells
+#     )).unsqueeze(0) for i in range(random_states)
+# ])   # Shape: [random_states, 10]
+
+# x_batch = inputs.clone()
+
+# # Normalize neighbour cells
+# print(x_batch[:,2:].shape)
+# x_batch[:, 2:] = torch.vmap(lambda x: torch.vmap(Cell.normalize)(x))(x_batch[:,2:])
+
+# print(x_batch[:,2:])
+
+#! PyTorch Tensor shuffling
+random_states = 10
+
+rand_general = torch.cat([
+    torch.cat((
+        torch.rand(1) * 2*pi,       # Bearing
+        torch.IntTensor([i%2]),     # State
+        torch.rand(8, dtype=torch.float64) * 0xFFFFFFFFFFFFFFFF  # Neighbouring cells
+    )).unsqueeze(0) for i in range(int(random_states * 0.7))
+])   # Shape: [random_states, 10]
+
+rand_empty_surr = torch.cat([
+    torch.cat((
+        torch.rand(1) * 2*pi,       # Bearing
+        torch.IntTensor([i%2]),     # State
+        torch.zeros(8, dtype=torch.float64) * torch.rand(1, dtype=torch.float64) * 0xFFFFFFFFFFFFFFFF # Neighbouring cells
+    )).unsqueeze(0) for i in range(int(random_states * 0.3))
+])
+
+inputs = torch.cat([rand_general, rand_empty_surr])
+
+x_batch = inputs[torch.randperm(inputs.size()[0])]
+
+print(x_batch)

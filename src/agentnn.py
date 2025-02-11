@@ -31,7 +31,7 @@ class AgentNN (nn.Module):
 
             activation_func:str="relu",
 
-            wb_magnitude:float=.01
+            wb_magnitude:float=.1
     ) -> None:
         super(AgentNN, self).__init__()
 
@@ -59,17 +59,22 @@ class AgentNN (nn.Module):
         # Prepare activation function
         activation_func = activation_func.lower()
 
-        if activation_func == "relu": self.activation_func = torch.relu
-        elif activation_func == "sigmoid": self.activation_func = torch.sigmoid
-        elif activation_func == "tanh": self.activation_func = torch.tanh
+        if activation_func == "relu": self.activation_func = nn.LeakyReLU(0.01)
+        elif activation_func == "sigmoid": self.activation_func = nn.Sigmoid()
+        elif activation_func == "tanh": self.activation_func = nn.Tanh()
 
-        print(self.weights, self.biases, sep='\n\n')
+        # print(self.weights, self.biases, sep='\n\n')
 
     def predict(self, x):
-        for w,b in zip(self.weights,self.biases):
-            # print((x, x.shape), (w, w.shape), (b, b.shape), sep='\n', end='\n\n')
-            x = self.activation_func(x @ w + b)
-        return x * pi
+        # for w,b in zip(self.weights,self.biases):
+        #     # print((x, x.shape), (w, w.shape), (b, b.shape), sep='\n', end='\n\n')
+        #     x = self.activation_func(x @ w + b)
+        # return x * pi
+        for i, (w, b) in enumerate(zip(self.weights, self.biases)):
+            x = x @ w + b
+            if i != len(self.weights) - 1:  # Apply activation to all but last layer
+                x = self.activation_func(x)
+        return x  # Remove scaling by pi
     
     @staticmethod
     def train_follow_phero(
@@ -86,10 +91,12 @@ class AgentNN (nn.Module):
         agent.to(AgentNN.device)
         
         loss_fn = nn.MSELoss(reduction='none')
-        losses = np.zeros((random_states,epochs))
+        losses = np.zeros((random_states,epochs), dtype=np.float16)
 
-        optimizer = optim.SGD(list(agent.weights)+list(agent.biases), lr=lr, momentum=0.9)
+        optimizer = optim.Adam(list(agent.weights)+list(agent.biases), lr=lr)
         scheduler = ReduceLROnPlateau(optimizer, 'min', patience=5000, eps=1e-8)
+
+        # print(optimizer.param_groups)
 
         # Prepare random training conditions
         rand_general = torch.cat([
@@ -109,29 +116,52 @@ class AgentNN (nn.Module):
         ])
 
         inputs = torch.cat([rand_general, rand_empty_surr]).to(AgentNN.device)
+        inputs = inputs[torch.randperm(inputs.size()[0])]
 
         if progress_bar:
             print(
                 f"> Training base genotype...",
-                f"\t{'Activation Func':<15} : {agent.activation_func.__name__}",
-                f"\t{'Epochs':<15} : {epochs}",
+                f"\t{'Activation Func':<15} : {agent.activation_func.__class__.__name__}",
+                f"\t{'Epochs':<15} : {epochs:,}",
                 f"\t{'Learning Rate':<15} : {lr}",
-                f"\t{'States':<15} : {random_states}",
+                f"\t{'States':<15} : {random_states:,}",
+                f"\t{'Device':<15} : {AgentNN.device}",
 
                 sep='\n',
                 end='\n\n'
             )
             printProgressBar(
                 iteration=0, total=epochs-1,
-                prefix=f'\tEpoch: {0:0{len(str(epochs))}}', suffix=f'Loss: 0.00e+0, Max: 0.00e+0',
-                length=50
+                prefix=f'\tEpoch: {0:0{len(str(epochs))}}', suffix=f'ETA: 0:00:00',
+                length=50, printEnd='\n'
             )
+            print(f'\t\tLoss: 0.00e+0, Max: 0.00e+0', end='\x1b[1A')
 
         dts = []
-        old_params = (
-            list(map(lambda p: p.data, agent.weights.parameters())),
-            list(map(lambda p: p.data, agent.biases.parameters()))
-            )
+
+        # old_params = (
+        #     list(map(lambda p: p.data, agent.weights.parameters())),
+        #     list(map(lambda p: p.data, agent.biases.parameters()))
+        #     )
+
+        # Prepare agent attributes to match the conitions
+        agent.bearing = inputs[:, 0].cpu().numpy()
+        agent.state = inputs[:, 1].cpu().numpy()
+
+        # Surrounding input for `follow_phero()`
+        surrounding = torch.cat([
+            inputs[:, 2:6],
+            torch.zeros((random_states, 1), device=AgentNN.device),  # insert dummy cells
+            inputs[:, 6:]
+        ], dim=1).cpu().numpy() # Shape: [random_states, 9]
+        
+        # Calculate ground truths (y)
+        delta_bearings = agent.follow_phero(surrounding)[1]#np.array([agent.follow_phero(s)[1] for s in surrounding])
+        delta_bearings = (delta_bearings + pi) % (2*pi) - pi
+        y = torch.DoubleTensor([[max(b, 0)/pi, max(-b, 0)/pi] for b in delta_bearings]).to(AgentNN.device)
+
+        # Prepare neighour batch normalizing
+        batch_norm_neighbours = torch.vmap(lambda x: torch.vmap(Cell.normalize)(x))
         
         for e in range(epochs):
             timer = datetime.now()
@@ -143,46 +173,32 @@ class AgentNN (nn.Module):
             # ))
             x_batch = inputs.clone()
 
-            # Surrounding input for `follow_phero()`
-            surrounding = torch.cat([
-                x_batch[:, 2:6],
-                torch.zeros((random_states, 1), device=AgentNN.device),  # insert dummy cells
-                x_batch[:, 6:]
-            ], dim=1).cpu().numpy() # Shape: [random_states, 9]
-
-            # Prepare agent attributes to match the conitions
-            agent.bearing = x_batch[:, 0].cpu().numpy()
-            agent.state = x_batch[:, 1].cpu().numpy()
-
             # Normalize neighbour cells
-            x_batch[:, 2:] = torch.DoubleTensor([
-                list(map(Cell.normalize, row.cpu().numpy())) for row in x_batch[:, 2:]
-            ]).to(AgentNN.device)
+            # x_batch[:, 2:] = torch.DoubleTensor([
+            #     list(map(Cell.normalize, row.cpu().numpy())) for row in x_batch[:, 2:]
+            # ]).to(AgentNN.device)
+            x_batch[:, 2:] = batch_norm_neighbours(x_batch[:,2:])
 
             # x_batch = x_batch.unsqueeze(1)
 
             # Clear optimizer gradients
             optimizer.zero_grad()
 
-            # Get predicted (y_hat) and expected (y)
+            # Get predicted (y_hat)
             y_hat = agent.predict(x_batch).double()
-
-            delta_bearings = agent.follow_phero(surrounding)[1]#np.array([agent.follow_phero(s)[1] for s in surrounding])
-            delta_bearings = (delta_bearings + pi) % (2*pi) - pi
-            y = torch.DoubleTensor([[max(b, 0), max(-b, 0)] for b in delta_bearings]).to(AgentNN.device)
 
             # Calculate loss
             each_loss = loss_fn(y_hat, y)
             # max_loss = torch.max(torch.mean(each_loss, dim=-1))
 
-            losses[:,e] = np.mean(each_loss.detach().cpu().numpy(), axis=-1)
+            losses[:,e] = np.mean(each_loss.detach().cpu().numpy(), axis=-1, dtype=np.float16)
 
             # Calculate gradients
             each_loss.mean().backward()#gradient=torch.ones_like(each_loss))
 
             # Update weights & biases
             optimizer.step()
-            # scheduler.step(np.mean(losses[:,e]))
+            scheduler.step(each_loss.mean())
 
             dts.append((datetime.now() - timer).total_seconds())
             dts = dts[-1000:]
@@ -190,18 +206,29 @@ class AgentNN (nn.Module):
             if progress_bar and e % max(1,round(100/random_states)) == 0:
                 printProgressBar(
                     iteration=e, total=epochs-1,
-                    prefix=f'\tEpoch: {e+1:0{len(str(epochs))}}, ETA: {str(timedelta(seconds=(epochs - e) * (sum(dts)/len(dts)))).split(".")[0]}',
-                    suffix=f'Loss: {Decimal(sum(losses[:,e])/len(losses[:,e])):.2e}, Max: {Decimal(np.max(losses[:,e])):.2e}',
-                    length=50
+                    prefix=f'\tEpoch: {e+1:0{len(str(epochs))}}',
+                    suffix=f'ETA: {str(timedelta(seconds=(epochs - e) * (sum(dts)/len(dts)))).split(".")[0]}   ',
+                    length=50, printEnd='\n'
+                )
+                print('\t\t'+
+                     'Loss: {',
+                        f'Mean: {Decimal(np.sum(losses[:,e], dtype=float)/len(losses[:,e])):.4e},',
+                        f'Max: {Decimal(float(np.max(losses[:,e]))):.4e}',
+                     '},',
+                    f'lr: {scheduler.get_last_lr()}',
+                    
+                    end='\x1b[1A'
                 )
 
         agent.genotype = AgentNN.get_genotype_from_agent(agent)
 
-        # if progress_bar: printProgressBar(
-        #     iteration=e, total=epochs-1,
-        #     prefix=f'\tEpoch: {epochs}', suffix=f'Loss: {Decimal(sum(losses[:,e])/len(losses[:,e])):.2e}, Max: {Decimal(np.max(losses[:,e])):.2e}',
-        #     length=50, printEnd='\n'
-        # )
+        if progress_bar:
+            # printProgressBar(
+            #     iteration=e, total=epochs-1,
+            #     prefix=f'\tEpoch: {epochs}', suffix=f'Loss: {Decimal(sum(losses[:,e])/len(losses[:,e])):.2e}, Max: {Decimal(np.max(losses[:,e])):.2e}',
+            #     length=50, printEnd='\n'
+            # )
+            print('\n')
         # print(*list(zip(y_hat.detach().cpu().tolist(), y.detach().cpu().tolist())), sep='\n')
         print("\tTraining complete!")
         
@@ -210,11 +237,14 @@ class AgentNN (nn.Module):
             for y_vals in losses:
                 plt.plot(x_vals, y_vals)
 
+            y_mean_vals = np.mean(losses, axis=0)
+            plt.plot(x_vals,y_mean_vals, linestyle='dashed', color='r')
+
             plt.xlabel('Epochs')
             plt.ylabel('Losses')
 
             plt.title((
-                f"af(x): {agent.activation_func.__name__} | "+
+                f"af(x): {agent.activation_func.__class__.__name__} | "+
                 f"Epochs: {epochs} | "+
                 f"LR: {lr} | "+
                 f"States: {random_states} "),
@@ -228,7 +258,7 @@ class AgentNN (nn.Module):
 
             # Create save directory
             curr_time = datetime.now().strftime("%Y-%m-%d_%H%M")
-            folder_name = f"{curr_time}_{Decimal(sum(losses[:,e])/len(losses[:,e])):.2e}"
+            folder_name = f"{curr_time}_{Decimal(np.sum(losses[:,e], dtype=float)/len(losses[:,e])):.2e}"
 
             print("\t\t", end="")
             if make_dir(save_dir+folder_name):
@@ -240,13 +270,13 @@ class AgentNN (nn.Module):
 
                 # Save genotype and parameters
                 d = {
-                    "afunc"     : agent.activation_func.__name__,
+                    "afunc"     : agent.activation_func.__class__.__name__,
                     "epochs"    : epochs,
                     "lr"        : lr,
                     "states"    : random_states,
 
-                    "mean_loss" : sum(losses[:,e])/len(losses[:,e]),
-                    "max_loss"  : np.max(losses[:,e]),
+                    "mean_loss" : np.sum(losses[:,e], dtype=float)/len(losses[:,e]),
+                    "max_loss"  : float(np.max(losses[:,e])),
 
                     "genotype"  : agent.genotype.detach().tolist()
                 }

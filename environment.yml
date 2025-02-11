@@ -4,8 +4,9 @@ channels:
 dependencies:
   - blas=1.0=mkl
   - bzip2=1.0.8=h2bbff1b_6
-  - ca-certificates=2024.11.26=haa95532_0
+  - ca-certificates=2024.12.31=haa95532_0
   - cccl=2.3.2=h47f531a_0
+  - colorama=0.4.6=py39haa95532_0
   - cuda=12.4.1=h382c6e5_0
   - cuda-cccl=12.4.127=haa95532_2
   - cuda-cccl_win-64=12.4.127=haa95532_2
