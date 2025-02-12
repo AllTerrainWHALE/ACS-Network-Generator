@@ -19,7 +19,7 @@ class Agent(AgentNN):
                 bearing:float=None,
                 speed:float=5,
 
-                layers:list[int]=[10,8,4,2],
+                layers:list[int]=[11,8,6,1],
                 genotype:tuple[float,...]=[
                     0.1643,  -1.9121,   1.5944,   3.0084,   2.9300,  -1.3188,  -5.6435,
                    -1.1207,  -6.7068,  13.2495, -13.3776,   0.8839,  -8.9438,  -3.2684,
@@ -190,20 +190,21 @@ class Agent(AgentNN):
             print("SWITCH!")
 
         inp = torch.cat([
-            torch.Tensor([self.bearing]),
+            (lambda b: torch.FloatTensor([np.sin(b),np.cos(b)]))(self.bearing),
             torch.Tensor([self.state]),
             torch.DoubleTensor(
                 np.delete([Cell.normalize(s) for surr in surrounding for s in surr], 4)
             )
         ])
+        
+        out = self.predict(inp).squeeze(0).detach().numpy().round(4)[0] * pi
+        gt_out = self.follow_phero(surrounding, dt)[1]
 
-        out = self.predict(inp).squeeze(0).detach().numpy().round(4)
+        # out = (out + pi) % (2*pi) - pi
+        gt_out = (gt_out + pi) % (2*pi) - pi
+        # act = np.array([max(b, 0), max(-b, 0)]).round(4)
 
-        gt_out = self.follow_phero(surrounding, dt)
-        b = (gt_out[1] + pi) % (2*pi) - pi
-        act = np.array([max(b, 0), max(-b, 0)]).round(4)
-
-        print(out, act)
+        print(out, gt_out)
 
         # self.pos += np.clip(gt_out[0] * dt * self.speed, -1, 1)
 
@@ -211,9 +212,10 @@ class Agent(AgentNN):
 
 
 
-        l,r = out
-        self.bearing += l
-        self.bearing -= r
+        # l,r = out
+        # self.bearing += l
+        # self.bearing -= r
+        self.bearing += out
 
 
         # # Bouncing off of top and bottom bounds
