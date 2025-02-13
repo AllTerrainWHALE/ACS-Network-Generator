@@ -64,7 +64,7 @@ class AgentNN (nn.Module):
         elif activation_func == "sigmoid": self.activation_func = nn.Sigmoid()
         elif activation_func == "tanh": self.activation_func = nn.Tanh()
 
-        print(self.weights, self.biases, sep='\n\n')
+        # print(self.weights, self.biases, sep='\n\n')
 
     def predict(self, x):
         # for w,b in zip(self.weights,self.biases):
@@ -100,6 +100,8 @@ class AgentNN (nn.Module):
         optimizer = optim.Adam(list(agent.weights)+list(agent.biases), lr=lr, weight_decay=1e-4)
         scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=5000, T_mult=2, eta_min=1e-6)
         # scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=1000)
+
+        # print(optimizer.param_groups)
 
         # Prepare random training conditions
         rand_general = torch.cat([
