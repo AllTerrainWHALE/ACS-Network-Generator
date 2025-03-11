@@ -1,20 +1,21 @@
 import numpy as np
 import threading as th
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
-import torch
-import torch.nn as nn
-import torch.optim as optim
+# import torch
+# import torch.nn as nn
+# import torch.optim as optim
 
 from time import time, sleep
 from math import pi
 
+import json
+
 from src.environment import Environment, Visualiser
 from src.colony import Colony
 from src.agent import Agent
-from src.agentnn import AgentNN
 from src.cell import Cell
-from src.utils import printProgressBar
+from src.utils import printProgressBar, bcolors as bc
 
 from colorama import init
 init()
@@ -79,7 +80,7 @@ if __name__ == '__main__':
     env_vis_res = (1000,1000)
 
     colonies = 1
-    agents_per_colony = 1
+    agents_per_colony = 50
     updates = -1
 
     print("",
@@ -100,91 +101,22 @@ if __name__ == '__main__':
         end='\n\n'
     )
 
-
-    ### Train Pheromone Following Genotype ###
-    agent = Agent(activation_func='relu', genotype=None)
-    AgentNN.train_follow_phero(agent, epochs=10000, random_states=10000, lr=0.001, loss_graph=True, save_loss_data=True)
-    # input()
-
-    # plt.ion()
-    # fig, ax = plt.subplots(1,3, figsize=(15,5))
-
-    # ax[0].set_title('relu')
-    # ax[0].set_xlabel("Epochs")
-    # ax[0].set_ylabel("Loss / State")
-    # ax[0].set_ylim(0,5)
-
-    # ax[1].set_title('sigmoid')
-    # ax[1].set_xlabel("Epochs")
-    # ax[1].set_ylabel("Loss / State")
-    # ax[1].set_ylim(0,5)
-
-    # ax[2].set_title('tanh')
-    # ax[2].set_xlabel("Epochs")
-    # ax[2].set_ylabel("Loss / State")
-    # ax[2].set_ylim(0,5)
-
-    # genotype = Agent().genotype
-
-    # activation_funcs = ['tanh', 'relu','sigmoid']
-    # epochs = 100000# epochs = [100, 1000, 10000, 100000]
-    # lrs = [.1, .01, .001, .0001, .00001]
-    # random_states = [100, 1000, 10000]
-    
-    # results = []
-
-    # for rs in random_states:
-    #     for lr in lrs:
-    #         for func in activation_funcs:
-    #             agent = Agent(genotype=genotype, activation_func=func)
-    #             _, losses = AgentNN.train_follow_phero(agent, epochs=epochs, random_states=rs, lr=lr, loss_graph=False)
-
-    #             results.append({
-    #                 'func'   : func,
-    #                 'lr' : lr,
-    #                 'states' : rs,
-    #                 'losses' : np.mean(losses, axis=0)
-    #             })
-
-    #             result = results[-1]
-
-    #             x_vals = np.arange(epochs)
-    #             y_vals = result['losses']
-
-    #             if result['func'] == 'relu':
-    #                 ax[0].plot(x_vals,y_vals,label=f"{result['lr']} | {result['states']}")
-    #             elif result['func'] == 'sigmoid':
-    #                 ax[1].plot(x_vals,y_vals,label=f"{result['lr']} | {result['states']}")
-    #             elif result['func'] == 'tanh':
-    #                 ax[2].plot(x_vals,y_vals,label=f"{result['lr']} | {result['states']}")
-
-    #             ax[0].legend(title="LR | States")
-    #             ax[1].legend(title="LR | States")
-    #             ax[2].legend(title="LR | States")
-
-    #             fig.canvas.draw()
-    #             fig.canvas.flush_events()
-
-    ### Initialize Environment and Colony ###
+    ###_ Initialize Environment and Colony _###
     env = Environment(env_res)
-    env.colonies = [Colony(env, (int(env_res[0]/2),int(env_res[1]/2)), agents_per_colony, base_genotype=agent.genotype)]
+    env.colonies = [Colony(
+        env, (int(env_res[0]/2),int(env_res[1]/2)), agents_per_colony
+    )]
 
-    # env.grid[100:150,100:150] = Cell.setState(env.grid[100:150,100:150], 1)
-    # env.grid[2,2] = Cell.setPheroB(env.grid[2,2], 1000)
-
-    # print(f"{'INITIAL GRID':^34}")
-    # print(np.array([[Cell.getPheroA(cx) for cx in cy] for cy in env.grid]), end='\n\n')
-    # print(np.array([[Cell.getPheroB(cx) for cx in cy] for cy in env.grid]), end='\n\n')
 
     answer = None
-    while answer not in ['y','n']:
-        answer = input("> Do you want the visual environment? (Y/N)\n").lower()
+    while answer not in ['y','n','']:
+        answer = input("> Do you want the visual environment? ([y]/n) ").lower().strip(' ')
         print()
 
-        if answer not in ['y','n']:
+        if answer not in ['y','n','']:
             print("> Invalid response\n")
 
-    if answer == 'y':
+    if answer in ['y','']:
         stop_event = th.Event()
 
         # Create threads

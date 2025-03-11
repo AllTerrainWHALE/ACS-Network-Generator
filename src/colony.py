@@ -5,18 +5,16 @@ from torch import FloatTensor
 
 from src.environment import Environment
 from src.agent import Agent
-from src.cell import Cell, State
+from src.cell import Cell
 
 class Colony:
 
-    reward = 0x7FFFFFFF
+    reward = 0x3FFFFFFF
 
     def __init__(self,
             environment:Environment,
             nest_pos:tuple[int,int],
             colony_size:int,
-
-            base_genotype:FloatTensor=None,
 
             radius:int=5
     ):
@@ -25,17 +23,16 @@ class Colony:
         self.pos = np.array(nest_pos)
         self.radius = radius
 
-        # self.env.grid[(*self.pos,)] = Cell.setState(self.env.grid[(*self.pos,)], int(State.NEST))
+        # self.env.grid[(*self.pos,)] = Cell.setState(self.env.grid[(*self.pos,)], int(Cell.state.NEST))
 
-        # Set environment states in a circle around the colony's position
+        #_ Set environment states in a circle around the colony's position
         r,c = self.env.grid.shape
         y,x = np.ogrid[:r,:c]
 
         distance = (x - self.pos[0])**2 + (y - self.pos[1])**2 # distance^2 from circle center
         mask = distance <= self.radius**2
 
-        self.env.grid[mask] = np.vectorize(lambda c: Cell.setState(c, int(State.NEST)))(self.env.grid[mask])
-
+        self.env.grid[mask] = np.vectorize(lambda c: Cell.setState(c, int(Cell.item.NEST)))(self.env.grid[mask])
 
         self.agents = np.array([])
         for a in range(colony_size):
@@ -44,7 +41,9 @@ class Colony:
 
             x,y = self.pos[0] + r * cos(theta), self.pos[1] + r * sin(theta)
 
-            self.agents = np.append(self.agents, Agent(position=(x,y), state=a%2, genotype=base_genotype))
+            self.agents = np.append(self.agents, Agent(
+                position=(x,y), state=1 #(a-1)%2
+            ))
 
     def update(self,dt:float=1):
 
@@ -54,7 +53,7 @@ class Colony:
             # Agent release pheromones
             phero_amount, phero_type = a.release_phero(surr)
 
-            self.env.grid[(*a.get_pos(),)] = (int(self.env.grid[(*a.get_pos(),)]) & ~(0x7FFFFFFF << phero_type*31)) | ((int(phero_amount) & 0x7FFFFFFF) << (phero_type*31))
+            self.env.grid[(*a.get_pos(),)] = (int(self.env.grid[(*a.get_pos(),)]) & ~(0x3FFFFFFF << phero_type*30)) | ((int(phero_amount) & 0x3FFFFFFF) << (phero_type*30))
 
             #// print(f"{phero_type}: {phero_amount} - {Cell.getAll(self.grid[(*a.get_pos(),)])}")
 

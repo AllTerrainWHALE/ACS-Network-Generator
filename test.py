@@ -5,11 +5,14 @@ import random
 import torch
 import torch.nn as nn
 
-from math import pi, radians, degrees
+from math import pi, radians, degrees, sqrt, ceil, floor
 from time import sleep
 from datetime import datetime
 
-from src.cell import Cell, State
+from src.cell import Cell
+from src.agent import Agent
+from src.environment import Environment
+from src.utils import *
 
 #? Print statement to stop the first output being merged with shit in the terminal startup
 #? IDK what the fuck goes on there
@@ -242,7 +245,7 @@ print()
 
 # rand_all = torch.cat([rand_general, rand_empty_surr])
 
-# # print(rand_general, rand_empty_surr, rand_all, sep='\n\n')
+# print(rand_general, rand_empty_surr, rand_all, sep='\n\n')
 
 # print(list(map(Cell.getAll, rand_empty_surr[0])))
 
@@ -300,3 +303,330 @@ print()
 # x_batch = inputs[torch.randperm(inputs.size()[0])]
 
 # print(x_batch)
+
+#! Pheromon excluding testing
+# val = 0
+# val = Cell.setAll(0, 3, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF)
+
+# print(f'{bin(val):>66}', '=', val)
+# print(f'{bin(0x1FFFFFFFF):>66}', '=', 0x1FFFFFFFF)
+# print(f'{bin(Cell.excludeState(val)):>66}', '=', Cell.excludeState(val))
+# print(f'{bin(Cell.excludePheroA(val)):>66}', '=', Cell.excludePheroA(val))
+# print(f'{bin(Cell.excludePheroB(val)):>66}', '=', Cell.excludePheroB(val))
+
+#! Sample creating testing
+# sample = Environment([3,3])
+# # sample.grid[np.random.randint(0,3), np.random.randint(0,3)] = Cell.setPheroA(0, 1000)#np.random.randint(1000))
+# sample.grid[2,2] = Cell.setPheroA(0, 1000)
+
+# print(np.vectorize(Cell.getPheroA)(sample.grid), end='\n\n')
+
+# for _ in range(10):
+#     sample.disperseAndEvaporate()
+
+#     print(np.vectorize(Cell.getPheroA)(sample.grid), end='\n\n')
+
+# print(*np.vectorize(Cell.getAll)(Environment.sample_state()), sep='\n\n')
+
+
+# samples = 5
+# grid_samples_edge = sqrt(samples)
+# grid_cell_edge = ceil(3 * grid_samples_edge)
+
+# print(grid_samples_edge, grid_cell_edge)
+
+
+
+
+
+
+
+
+    # @staticmethod
+    # def sample_state(env:"Environment"=None):
+    #     if env == None:
+    #         env = Environment([3,3])
+
+    #     assert env.grid.shape == (3,3), f"Sample environment must have a resolution of (3, 3), not {env.grid.shape}"
+
+    #     index = np.random.randint(0,3), np.random.randint(0,3)
+
+    #     while True:
+    #         items = np.random.choice([0, 1, 2, 3], size=(3, 3), p=[0.88, 0.01, 0.01, 0.1])
+    #         if np.any(np.delete(items,4) != State.WALL):
+    #             env.grid = items.astype(np.uint64) << 62
+    #             break
+        
+    #     env.grid[index] = Cell.setPheroA(env.grid[index], np.random.randint(0x7FFFFFFF))
+    #     env.grid[index] = Cell.setPheroB(env.grid[index], np.random.randint(0x7FFFFFFF))
+
+    #     for _ in range(np.random.randint(10)):
+    #         env.disperseAndEvaporate()
+
+    #     return env.grid
+
+
+
+#! Old training samples generation
+        # Prepare random training conditions
+        # rand_general = torch.cat([
+        #     torch.cat((
+        #         (lambda b: torch.FloatTensor([np.sin(b),np.cos(b)]))(torch.rand(1) * 2*pi),       # Bearing
+        #         torch.IntTensor([i%2]),     # State
+        #         torch.rand(8, dtype=torch.float64) * 0xFFFFFFFFFFFFFFFF  # Neighbouring cells
+        #     )).unsqueeze(0) for i in range(int((random_states) * 0.5))
+        # ])   # Shape: [random_states, 10]
+
+        # rand_equal_surr = torch.cat([
+        #     torch.cat((
+        #         (lambda b: torch.FloatTensor([np.sin(b),np.cos(b)]))(torch.rand(1) * 2*pi),       # Bearing
+        #         torch.IntTensor([i%2]),     # State
+        #         torch.ones(8, dtype=torch.float64) * torch.rand(1, dtype=torch.float64) * 0xFFFFFFFFFFFFFFFF # Neighbouring cells
+        #     )).unsqueeze(0) for i in range(int((random_states) * 0.1))
+        # ])
+
+        # empty_surr = torch.cat([
+        #     torch.cat([
+        #         (lambda b: torch.FloatTensor([np.sin(b),np.cos(b)]))(torch.rand(1) * 2*pi), # Bearing
+        #         torch.IntTensor([i%2]),    # State
+        #         torch.zeros(8, dtype=torch.float64)              # Neighbouring cells
+        #     ]).unsqueeze(0) for i in range(int((random_states) * 0.4))
+        # ])
+
+        # inputs = torch.cat([rand_general, rand_equal_surr, empty_surr]).to(AgentNN.device)
+        # inputs = inputs[torch.randperm(inputs.size(0))]
+
+
+#! Check pheros are being selected correctly
+# inp = torch.cat([
+#         torch.tensor([Cell.setAll(0, 3, 10, 5) for _ in range(8)], dtype=torch.int64).unsqueeze(0) for i in range(5)
+# ])
+
+# print(inp.dtype)
+# print(inp)
+# exit()
+
+# agent_states = inp[:,2].numpy()
+# surr = inp[:, 3:]
+
+# states,pheroA,pheroB = np.vectorize(lambda a: Cell.getAll(a))(surr)
+# print(*list(zip(states,pheroA,pheroB)), sep='\n\n')
+
+# # surr = np.vectorize(lambda a: Cell.setState(a,3))(surr)
+
+# # states,pheroA,pheroB = np.vectorize(lambda a: Cell.getAll(a))(surr)
+# # print(*list(zip(states,pheroA,pheroB)), sep='\n\n')
+
+
+# surr_pheros = np.where(np.expand_dims(agent_states, axis=-1) == 0, pheroA, pheroB)
+
+# print(*list(zip(agent_states,surr_pheros)), sep='\n\n')
+
+
+# val = torch.tensor(Cell.setAll(0, 3, 0x3FFFFFFF, 0x3FFFFFFF), dtype=torch.int64)
+# print(f"0b{'-'*64}")
+# print(bin(val.item()))
+# print(int('1'*62, 2))
+# print(val.item(), sep='\n')
+
+# print(Cell.getAll(val.item()))
+
+# print(hex(int('1'*32,2)))
+# print(len(str(bin(2147483647))))
+
+#! Ensure environment samples are being generated correctly
+# random_states = 10
+
+# env = Environment([3,3])
+# simul_samples = torch.cat([
+#     torch.tensor(
+#         np.delete(Environment.sample_state(env),4), dtype=torch.int64
+#     ).unsqueeze(0) for i in range(int(random_states*0.7))
+# ])   # Shape: [random_states, 10]
+
+# empty_samples = torch.cat([
+#     torch.zeros(8, dtype=torch.int64)
+#         .unsqueeze(0) for i in range(int((random_states) * 0.3))
+# ])
+# del env
+
+# env_samples = torch.cat([simul_samples, empty_samples])
+# env_samples = env_samples[torch.randperm(env_samples.size(0))]
+
+# states,pheroA,pheroB = np.vectorize(lambda a: Cell.getAll(a))(env_samples)
+# print(*list(zip(states,pheroA,pheroB)), sep='\n\n')
+
+
+#! OLD SAMPLE GENERATION
+    #? issue with dtyping in tensors, as you cannot have multiple different types in one tensor
+
+        # sim_surr = torch.cat([
+        #     torch.cat((
+        #         (lambda b: torch.FloatTensor([np.sin(b),np.cos(b)]))(torch.rand(1) * 2*pi),       # Bearing
+        #         torch.IntTensor([i%2]),     # Agent State
+        #         torch.DoubleTensor(np.delete(Environment.sample_state(sample_env),4))
+        #     )).unsqueeze(0) for i in range(int(random_states*0.7))
+        # ])   # Shape: [random_states, 10]
+
+        # empty_surr = torch.cat([
+        #     torch.cat([
+        #         (lambda b: torch.FloatTensor([np.sin(b),np.cos(b)]))(torch.rand(1) * 2*pi), # Bearing
+        #         torch.IntTensor([i%2]),    # State
+        #         torch.zeros(8, dtype=torch.float64)              # Neighbouring cells
+        #     ]).unsqueeze(0) for i in range(int((random_states) * 0.3))
+        # ])
+
+# random_states = 10
+
+# #_ Generate environment samples to train on
+# random_states = 10
+
+# env = Environment([3,3])
+# simul_samples = torch.cat([ #? Shape: [random_states*0.7, 8]
+#     torch.tensor(
+#         np.delete(Environment.sample_state(env,0.5),4), dtype=torch.int64 #//np.full([3,3], Cell.setAll(0,3,10,5), dtype=np.int64)
+#     ).unsqueeze(0) for i in range(random_states)
+# ])
+# del env
+
+# # empty_samples = torch.cat([ #? Shape: [random_states*0.3, 8]
+# #     torch.zeros(8, dtype=torch.int64)
+# #         .unsqueeze(0) for i in range(int((random_states) * 0.3))
+# # ])
+
+# # env_samples = torch.cat([simul_samples, empty_samples])
+# # env_samples = env_samples[torch.randperm(env_samples.size(0))]
+# #         #? Shape: [random_states, 8]
+# env_samples = simul_samples.to(AgentNN.device)
+#         #? Shape: [random_states, 8]
+
+# #_ Generate random bearings
+# bearings = torch.cat([ #? Shape: [random_states, 2]
+#     (lambda b: torch.FloatTensor([np.sin(b),np.cos(b)]))(torch.rand(1) * 2*pi)
+#         .unsqueeze(0) for i in range(random_states)
+# ])
+
+# #_ Generate uniformly split states
+# a_states = torch.cat([ #? Shape: [random_states]
+#     torch.ByteTensor([i%2])
+#         for i in range(random_states)
+# ])
+
+
+# #// print(*list(zip(env_samples,bearings,a_states)), sep='\n\n')
+# #// print(env_samples)
+
+# # print(*list(zip(a_states.tolist(),env_samples.tolist())), sep='\n\n')
+# # exit()
+
+# #_ Exclude irrelivant pheros based on `a_states`
+# processed = []
+# for a_state, env_sample in zip(a_states.tolist(), env_samples.tolist()):
+#     if a_state == 0:
+#         # Apply excludePheroB to every cell in the row
+#         processed_row = [Cell.getPheroA(cell) for cell in env_sample]
+#     else:
+#         # Apply excludePheroA to every cell in the row
+#         processed_row = [Cell.getPheroB(cell) for cell in env_sample]
+#     processed.append(processed_row)
+
+# # Convert to tensor
+# env_samples = torch.tensor(processed, dtype=torch.int64)
+
+# #_ Normalize input samples
+# batch_norm_neighbours = torch.vmap(lambda x: torch.vmap(lambda y: y/torch.max(torch.max(x),torch.tensor(1)))(x))
+# norm_env_samples = torch.tensor(batch_norm_neighbours(env_samples), dtype=torch.float64)
+
+# #_ Bring bearings and samples together into one tensor of inputs
+# print(bearings.shape, norm_env_samples.shape)
+
+# inputs = torch.cat([bearings,norm_env_samples], dim = 1)
+
+# print(*list(zip(inputs.tolist(),env_samples.tolist())), sep='\n\n')
+# print(inputs.dtype)
+
+#! Test Genotype <-> Weights + Biases
+# layers = [1,3,3,1]
+# Ws = torch.nn.ParameterList([
+#     torch.nn.Parameter(torch.Tensor(
+#         [[ 1, 2, 3]]
+#     )),
+#     torch.nn.Parameter(torch.Tensor(
+#         [[ 4, 5, 6],
+#          [ 7, 8, 9],
+#          [10,11,12]]
+#     )),               
+#     torch.nn.Parameter(torch.Tensor(
+#         [[13],
+#          [14],
+#          [15]]
+#     ))
+# ])
+# bs = torch.nn.ParameterList([
+#     torch.nn.Parameter(torch.Tensor([[101,102,103]])),
+#     torch.nn.Parameter(torch.Tensor([[104,105,106]])),
+#     torch.nn.Parameter(torch.Tensor([[107]]))
+# ])
+
+# a = AgentNN(layers)
+# print(*list(a.named_parameters()), sep='\n', end='\n\n')
+# print(*Ws, *bs, sep='\n', end='\n\n')
+
+# g = AgentNN.get_genotype_from_wb(Ws,bs).tolist()
+# print(g, end='\n\n')
+
+# pWs, pbs = AgentNN.get_wb_from_genotype(g,layers)
+
+# print(*pWs.parameters(), *pbs.parameters(), sep='\n')
+
+
+#! Test getting optimizer and scheduler params
+# agent = AgentNN([4,3,1])
+
+# optim = torch.optim.Adam(agent.parameters())
+# sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, min_lr=1e-8)
+
+# print({"name":optim.__class__.__name__}|{k:v for k,v in optim.param_groups[0].items() if k != 'params'})
+# print({"name":sched.__class__.__name__}|sched.state_dict())
+
+
+#_ Generate random bearings
+# random_states = 10
+
+# bearings = torch.cat([ #? Shape: [random_states, 2]
+#     (torch.rand(1) * 2*pi)
+#         for i in range(random_states)
+# ])
+# print(bearings)
+
+# b = torch.cat([ #? Shape: [random_states, 2]
+#     (lambda b: torch.FloatTensor([np.sin(b),np.cos(b)]))(bearings[i])
+#         .unsqueeze(0) for i in range(random_states)
+# ])
+# print(b)
+
+# vector_to_angle = torch.vmap(lambda v: torch.arctan2(v[0],v[1]) % (2*pi))
+
+# print(vector_to_angle(b))
+
+# b = torch.tensor(0)
+
+# c,s = torch.cos(b), -torch.sin(b)
+
+# at = torch.arctan2(-s, c)
+
+# print(b, s, c, at)
+
+# a = Agent(layers=[1,2,1])
+
+# # params = torch.nn.ParameterList([p for p in a.parameters()])
+
+# args = {"name":"reducelronplateau",}
+
+# fn = TestAgentNN._get_optimizer_func(params=a.parameters(), **args)
+
+# print(fn)
+# print()
+
+print(hex(int('1'*62,2)))
+# print(len(str(bin(2147483647))))
