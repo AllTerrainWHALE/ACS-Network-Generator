@@ -8,9 +8,13 @@ from time import time
 from datetime import timedelta
 from math import ceil, sqrt
 
-# from src.colony import Colony
-# from src.agent import Agent
 from src.cell import Cell
+
+#_ Define kernal constants
+MAX_PHERO = Cell.MAX_PHERO
+MAX_ITEM = Cell.MAX_ITEM
+MASK_STEP = Cell.MASK_STEP
+
 
 class Environment:
 
@@ -22,7 +26,7 @@ class Environment:
 
         #_ Define environment grid
         self.grid = np.zeros((resolution), dtype=np.uint64)
-        self.p_grid = np.pad(self.grid, pad_width=1, mode='constant', constant_values=Cell.setState(0, 3))
+        self.p_grid = np.pad(self.grid, pad_width=1, mode='constant', constant_values=Cell.setItem(0, 3))
 
         #_ Place food sources
         if food_sources:
@@ -33,6 +37,8 @@ class Environment:
         #_ Allocate device memory for grid and output grid once
         self.grid_device = cuda.to_device(self.grid)
         self.output_grid_device = cuda.device_array_like(self.grid)
+
+        
 
         self.colonies = []
 
@@ -115,9 +121,9 @@ class Environment:
         x, y = cuda.grid(2)
 
         if x >= 0 and x < grid.shape[0] and y >= 0 and y < grid.shape[1]:
-            xy_pheroA = (grid[x, y] >> 30) & 0x3FFFFFFF
-            xy_pheroB = grid[x, y] & 0x3FFFFFFF
-            isWall = (grid[x, y] >> 60) & 0b11 == 3
+            xy_pheroA = (grid[x, y] >> MASK_STEP) & MAX_PHERO
+            xy_pheroB = grid[x, y] & MAX_PHERO
+            isWall = (grid[x, y] >> (MASK_STEP*2)) & MAX_ITEM == 3
 
             if not isWall:
                 sum_a = 0
@@ -127,17 +133,17 @@ class Environment:
                     for y1 in range(-1,2):
                         if y+y1 < 0 or y+y1 >= grid.shape[1]: continue
 
-                        sum_a += (grid[x + x1, y + y1] >> 30) & 0x3FFFFFFF # Get PheroA value
-                        sum_b += grid[x + x1, y + y1] & 0x3FFFFFFF # Get PheroB value
+                        sum_a += (grid[x + x1, y + y1] >> MASK_STEP) & MAX_PHERO # Get PheroA value
+                        sum_b += grid[x + x1, y + y1] & MAX_PHERO # Get PheroB value
                 blur_a = sum_a / 9
                 blur_b = sum_b / 9
 
                 diffusionDelta = 0.7 * dt
-                evaporationDelta = 0.01 * dt
+                evaporationDelta = 0.001 * dt
 
                 # Diffuse and evaporate pheromones
-                diff_evap_a = max(0, min((xy_pheroA + diffusionDelta * (blur_a - xy_pheroA)) * (1 - evaporationDelta), 0x3FFFFFFF))
-                diff_evap_b = max(0, min((xy_pheroB + diffusionDelta * (blur_b - xy_pheroB)) * (1 - evaporationDelta), 0x3FFFFFFF))
+                diff_evap_a = max(0, min((xy_pheroA + diffusionDelta * (blur_a - xy_pheroA)) * (1 - evaporationDelta), MAX_PHERO))
+                diff_evap_b = max(0, min((xy_pheroB + diffusionDelta * (blur_b - xy_pheroB)) * (1 - evaporationDelta), MAX_PHERO))
             
             else:
                 diff_evap_a = diff_evap_b = 0
@@ -146,7 +152,7 @@ class Environment:
 
             # Apply effects
             # output_grid[x, y] = ((int(diff_evap_a) & 0x7FFFFFFF) << 31) | (int(diff_evap_b) & 0x7FFFFFFF)
-            output_grid[x,y] = (grid[x,y] & ~((0x3FFFFFFF << 30) | 0x3FFFFFFF)) | ((int(diff_evap_a) & 0x3FFFFFFF) << 30) | (int(diff_evap_b) & 0x3FFFFFFF)
+            output_grid[x,y] = (grid[x,y] & ~((MAX_PHERO << MASK_STEP) | MAX_PHERO)) | ((int(diff_evap_a) & MAX_PHERO) << MASK_STEP) | (int(diff_evap_b) & MAX_PHERO)
 
     
     def disperseAndEvaporate(self, dt:float=1):
@@ -181,12 +187,12 @@ class Environment:
 
 
         ###! TESTING !###
-        # self.grid[275,(225,250)] = Cell.setPheroB(0,0x3FFFFFFF)
-        # self.grid[225,(225,275)] = Cell.setPheroB(0,0x3FFFFFFF)
-        # self.grid[50:230, 230] = Cell.setPheroB(0,0x3FFFFFFF)
+        # self.grid[275,(225,250)] = Cell.setPheroB(0,Cell.MAX_PHERO)
+        # self.grid[225,(225,275)] = Cell.setPheroB(0,Cell.MAX_PHERO)
+        # self.grid[50:230, 230] = Cell.setPheroB(0,Cell.MAX_PHERO)
 
         if time() - self.runtime_start >= 60:
-            self.grid[245:255, 215:225] = np.vectorize(lambda c: Cell.setState(c, Cell.item.NONE))(self.grid[245:255, 215:225])
+            self.grid[245:255, 215:225] = np.vectorize(lambda c: Cell.setItem(c, Cell.item.NONE))(self.grid[245:255, 215:225])
 
 
         for colony in self.colonies:
@@ -216,10 +222,10 @@ class Environment:
         distance = (x - pos[0])**2 + (y - pos[1])**2 # distance^2 from circle center
         mask = distance <= radius**2
 
-        self.grid[mask] = Cell.setState(0, int(Cell.item.FOOD))
+        self.grid[mask] = Cell.setItem(0, Cell.item.FOOD)
 
     def placeObstructionSquare(self, pos1, pos2):
-        self.grid[pos1[0]:pos2[0], pos1[1]:pos2[1]] = Cell.setState(0, int(Cell.item.WALL))
+        self.grid[pos1[0]:pos2[0], pos1[1]:pos2[1]] = Cell.setItem(0, Cell.item.WALL)
         
     
 
@@ -244,8 +250,8 @@ class Environment:
             env.grid[index] = Cell.setPheroA(env.grid[index], 0)
             env.grid[index] = Cell.setPheroB(env.grid[index], 0)
         else:
-            env.grid[index] = Cell.setPheroA(env.grid[index], np.random.randint(0x3FFFFFFF))
-            env.grid[index] = Cell.setPheroB(env.grid[index], np.random.randint(0x3FFFFFFF))
+            env.grid[index] = Cell.setPheroA(env.grid[index], np.random.randint(Cell.MAX_PHERO))
+            env.grid[index] = Cell.setPheroB(env.grid[index], np.random.randint(Cell.MAX_PHERO))
 
         for _ in range(np.random.randint(10)):
             env.disperseAndEvaporate()
@@ -322,11 +328,11 @@ class Visualiser:
         states,pheroA,pheroB = get_all_cell_data(self.env.get_grid_safely())
 
         #_ Normalize pheros
-        pheroA_norm = (pheroA / 0x3FFFFFFF)
-        pheroB_norm = (pheroB / 0x3FFFFFFF)
+        pheroA_norm = (pheroA / Cell.MAX_PHERO)
+        pheroB_norm = (pheroB / Cell.MAX_PHERO)
         
         #_ Scaling pheros
-        gamma = 0.2
+        gamma = 1
         pheroA_scale = np.power(pheroA_norm, gamma)
         pheroB_scale = np.power(pheroB_norm, gamma)
 
@@ -343,18 +349,18 @@ class Visualiser:
         pheroB_colour = (0,0,204)
 
         #_ Add pheromones to canvas
-        # amplifier = 0
+        amplifier = 1
 
         g = np.ones_like(pheroA_clip)[:,:,np.newaxis] * self.bg
 
-        g += pheroA_clip[:,:,np.newaxis] * (np.array(pheroA_colour)[np.newaxis,np.newaxis,:] - g) # + amplifier * (
-            # ((np.where(pheroA_clip >= 0.05, 1-pheroA_clip, 0)[:,:,np.newaxis]) * np.array(pheroA_colour)[np.newaxis,np.newaxis,:]*.5) +
-            # ((np.where((pheroA_clip > 0.0) & (pheroA_clip < 0.05), 1-pheroA_clip, 0)[:,:,np.newaxis]) * np.array(pheroA_colour)[np.newaxis,np.newaxis,:]*.25)
-        # )
-        g += pheroB_clip[:,:,np.newaxis] * (np.array(pheroB_colour)[np.newaxis,np.newaxis,:] - g) # + amplifier * (
-            # ((np.where(pheroB_clip >= 0.05, 1-pheroB_clip, 0)[:,:,np.newaxis]) * np.array(pheroB_colour)[np.newaxis,np.newaxis,:]*.5) +
-            # ((np.where((pheroB_clip > 0.0) & (pheroB_clip < 0.05), 1-pheroB_clip, 0)[:,:,np.newaxis]) * np.array(pheroB_colour)[np.newaxis,np.newaxis,:]*.25)
-        # )
+        g += pheroA_clip[:,:,np.newaxis] * (np.array(pheroA_colour)[np.newaxis,np.newaxis,:] - g) + amplifier * (
+            ((np.where(pheroA_clip >= 0.05, 1-pheroA_clip, 0)[:,:,np.newaxis]) * np.array((96,96,96))[np.newaxis,np.newaxis,:]) +
+            ((np.where((pheroA_clip > 0.0) & (pheroA_clip < 0.05), 1-pheroA_clip, 0)[:,:,np.newaxis]) * np.array((64,64,64))[np.newaxis,np.newaxis,:])
+        )
+        g += pheroB_clip[:,:,np.newaxis] * (np.array(pheroB_colour)[np.newaxis,np.newaxis,:] - g) + amplifier * (
+            ((np.where(pheroB_clip >= 0.05, 1-pheroB_clip, 0)[:,:,np.newaxis]) * np.array((96,96,96))[np.newaxis,np.newaxis,:]) +
+            ((np.where((pheroB_clip > 0.0) & (pheroB_clip < 0.05), 1-pheroB_clip, 0)[:,:,np.newaxis]) * np.array((64,64,64))[np.newaxis,np.newaxis,:])
+        )
         
         #_ Add environment items to canvas
         g[states == 1] = np.array((204,204,0))[np.newaxis,np.newaxis,:]

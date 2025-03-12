@@ -1,21 +1,22 @@
 class Cell:
 
-    # Masks for the 64-bit layout
-    STATE_MASK = 3 << 60            # Mask for the first 2 bits
-    PHEROA_MASK = 0x3FFFFFFF << 30  # Mask for the next 31 bits
-    PHEROB_MASK = 0x3FFFFFFF        # Mask for the last 31 bits
+    #_ Info bit lengths
+    ITEM_BITS = 2
+    PHERO_BITS = 30
 
-    # Maximum values for each section
-    MAX_STATE = 3                  # 2 bits: 0b11 -> 3
-    MAX_PHEROA = 0x3FFFFFFF        # 31 bits: 0x3FFFFFFF -> 2147483647
-    MAX_PHEROB = 0x3FFFFFFF        # 31 bits: 0x3FFFFFFF -> 2147483647
-    
-    # def __init__(self):
-    #     self.value = 0
+    #_ Maximum values for each section
+    MAX_ITEM = (2**ITEM_BITS)-1 # 2 bits: 0b11 -> 3
+    MAX_PHERO = (2**PHERO_BITS)-1 # 30 bits: 0x3FFFFFFF -> 1,073,741,823
 
+    #_ Masks for the bit layout
+    MASK_STEP = len(bin(MAX_PHERO))-2
+
+    ITEM_MASK = 3 << (MASK_STEP*2)            # Mask for the items
+    PHEROA_MASK = MAX_PHERO << MASK_STEP  # Mask for the next 30 bits
+    PHEROB_MASK = MAX_PHERO        # Mask for the last 30 bits
     
     @staticmethod
-    def setState(whole_val: int, new_val: int) -> int:
+    def setItem(whole_val: int, new_val: int) -> int:
         """
         2-bit long integer representing the state of the Cell in the environment.
 
@@ -25,26 +26,26 @@ class Cell:
         - `State.WALL = 3` -> Wall / Obstruction
         """
         # Clear the first 2 bits and set them
-        whole_val = (int(whole_val) & ~Cell.STATE_MASK) | ((int(new_val) & 0b11) << 60)
+        whole_val = (int(whole_val) & ~Cell.ITEM_MASK) | ((int(new_val) & Cell.MAX_ITEM) << (Cell.MASK_STEP*2))
         return whole_val
 
     @staticmethod
     def setPheroA(whole_val: int, new_val: int) -> int:
         # Clear the next 31 bits and set them
-        whole_val = (int(whole_val) & ~Cell.PHEROA_MASK) | ((int(new_val) & 0x3FFFFFFF) << 30)
+        whole_val = (int(whole_val) & ~Cell.PHEROA_MASK) | ((int(new_val) & Cell.MAX_PHERO) << Cell.MASK_STEP)
         return whole_val
 
     @staticmethod
     def setPheroB(whole_val: int, new_val: int) -> int:
         # Clear the last 31 bits and set them
-        whole_val = (int(whole_val) & ~Cell.PHEROB_MASK) | (int(new_val) & 0x3FFFFFFF)
+        whole_val = (int(whole_val) & ~Cell.PHEROB_MASK) | (int(new_val) & Cell.MAX_PHERO)
         return whole_val
     
     @staticmethod
     def setAll(whole_val: int, state: int, pheroA: int, pheroB: int) -> int:
         return Cell.setPheroB(
             Cell.setPheroA(
-                Cell.setState(whole_val, state),
+                Cell.setItem(whole_val, state),
                 pheroA
             ),
             pheroB
@@ -53,52 +54,46 @@ class Cell:
 
 
     @staticmethod
-    def getState(whole_val: int) -> int:
+    def getItem(whole_val: int) -> int:
         # Extract and return the first 2 bits
-        return (int(whole_val) >> 60) & 0b11
+        return (int(whole_val) >> (Cell.MASK_STEP*2)) & Cell.MAX_ITEM
 
     @staticmethod
     def getPheroA(whole_val: int) -> int:
         # Extract and return the next 31 bits
-        return (int(whole_val) >> 30) & 0x3FFFFFFF
+        return (int(whole_val) >> Cell.MASK_STEP) & Cell.MAX_PHERO
 
     @staticmethod
     def getPheroB(whole_val: int) -> int:
         # Extract and return the last 31 bits
-        return int(whole_val) & 0x3FFFFFFF
+        return int(whole_val) & Cell.MAX_PHERO
     
     @staticmethod
     def getAll(whole_val: int) -> int:
-        return Cell.getState(whole_val), Cell.getPheroA(whole_val), Cell.getPheroB(whole_val)
+        return Cell.getItem(whole_val), Cell.getPheroA(whole_val), Cell.getPheroB(whole_val)
     
 
 
     @staticmethod
-    def excludeState(whole_val) -> int:
-        """Removes the State bits and shifts PheroA and PheroB left to fill the gap."""
-        # phero_a = Cell.getPheroA(whole_val)
-        # phero_b = Cell.getPheroB(whole_val)
-        return (Cell.getPheroA(whole_val) << 30) | Cell.getPheroB(whole_val)
+    def excludeItem(whole_val) -> int:
+        """Removes the Item bits and shifts PheroA and PheroB bits left to fill the gap."""
+        return (Cell.getPheroA(whole_val) << Cell.MASK_STEP) | Cell.getPheroB(whole_val)
 
     @staticmethod
     def excludePheroA(whole_val) -> int:
-        """Removes the PheroA bits and shifts State and PheroB together."""
-        # state = Cell.getState(whole_val)
-        # phero_b = Cell.getPheroB(whole_val)
-        return (Cell.getState(whole_val) << 30) | Cell.getPheroB(whole_val)
+        """Removes the PheroA bits and shifts Item and PheroB bits together."""
+        return (Cell.getItem(whole_val) << Cell.MASK_STEP) | Cell.getPheroB(whole_val)
 
     @staticmethod
     def excludePheroB(whole_val) -> int:
-        """Removes the PheroB bits and shifts State and PheroA together."""
-        # state = Cell.getState(whole_val)
-        # phero_a = Cell.getPheroA(whole_val)
-        return (Cell.getState(whole_val) << 30) | Cell.getPheroA(whole_val)
+        """Removes the PheroB bits and shifts Item and PheroA bits together."""
+        return (Cell.getItem(whole_val) << Cell.MASK_STEP) | Cell.getPheroA(whole_val)
     
 
 
-    @staticmethod
-    def normalize(whole_val):
-        return whole_val / 0x3FFFFFFFFFFFFFFF
+    #// @staticmethod
+    #// def normalize(whole_val):
+    #//     return whole_val / int('1'*())
     
     class item:
         NONE = 0

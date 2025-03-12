@@ -9,7 +9,7 @@ from src.cell import Cell
 
 class Colony:
 
-    reward = 0x3FFFFFFF
+    reward = Cell.MAX_PHERO
 
     def __init__(self,
             environment:Environment,
@@ -32,7 +32,7 @@ class Colony:
         distance = (x - self.pos[0])**2 + (y - self.pos[1])**2 # distance^2 from circle center
         mask = distance <= self.radius**2
 
-        self.env.grid[mask] = np.vectorize(lambda c: Cell.setState(c, int(Cell.item.NEST)))(self.env.grid[mask])
+        self.env.grid[mask] = np.vectorize(lambda c: Cell.setItem(c, Cell.item.NEST))(self.env.grid[mask])
 
         self.agents = np.array([])
         for a in range(colony_size):
@@ -53,7 +53,7 @@ class Colony:
             # Agent release pheromones
             phero_amount, phero_type = a.release_phero(surr)
 
-            self.env.grid[(*a.get_pos(),)] = (int(self.env.grid[(*a.get_pos(),)]) & ~(0x3FFFFFFF << phero_type*30)) | ((int(phero_amount) & 0x3FFFFFFF) << (phero_type*30))
+            self.env.grid[(*a.get_pos(),)] = (int(self.env.grid[(*a.get_pos(),)]) & ~(Cell.MAX_PHERO << phero_type*Cell.MASK_STEP)) | ((int(phero_amount) & Cell.MAX_PHERO) << (phero_type*Cell.MASK_STEP))
 
             #// print(f"{phero_type}: {phero_amount} - {Cell.getAll(self.grid[(*a.get_pos(),)])}")
 

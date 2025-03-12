@@ -21,37 +21,38 @@ print()
 #! Cell Class Testing
 # c = 0
 
-# c = Cell.setState(c, 1)
-# c = Cell.setPheroB(c, 0x7FFFFFFF)
-# c = Cell.setPheroA(c, 0x7FFFFFFF)
+# c = Cell.setItem(c, 1)
+# c = Cell.setPheroB(c, Cell.MAX_PHERO)
+# c = Cell.setPheroA(c, Cell.MAX_PHERO)
 
-# print(Cell.getState(c))
+# print(Cell.getItem(c))
 # print(Cell.getPheroA(c))
 # print(Cell.getPheroB(c))
 # print(Cell.getAll(c))
 
-# c = Cell.setPheroA(c, 0x7FFFFFFF)
+# c = Cell.setPheroA(c, int(Cell.MAX_PHERO/2))
 
-# print(Cell.getState(c))
+# print(Cell.getItem(c))
 # print(Cell.getPheroA(c))
 # print(Cell.getPheroB(c))
 # print()
-# print(0x7FFFFFFF)
+# print(Cell.MAX_PHERO)
 
 #! Pheromone Dispersal and Evaporation Testing
-# xy_phero = 0x7FFFFFFF
-# for _ in range(2):
-#     blur = xy_phero / 9
+xy_phero = Cell.MAX_PHERO
+print(f"{xy_phero:,}")
+for _ in range(10):
+    blur = xy_phero / 9
 
-#     diffusionDelta = 0.01
-#     evaporationDelta = 0.01 * 0x7FFFFFFF
+    diffusionDelta = 0.7
+    evaporationDelta = 0.01
 
-#     diff = (diffusionDelta * xy_phero) + ((1-diffusionDelta) * blur)
-#     diff_evap = max(0, diff - evaporationDelta)
+    diff_evap = (xy_phero + diffusionDelta * (blur - xy_phero)) * (1 - evaporationDelta)
+    
 
-#     print(f"{round(diff_evap, 3):,}")
+    print(f"{round(diff_evap, 3):,}")
 
-#     xy_phero = diff_evap
+    xy_phero = diff_evap
 
 #! Environment Padding
 # env = np.random.randint(0,2,(5,5))
@@ -627,6 +628,3 @@ print()
 
 # print(fn)
 # print()
-
-print(hex(int('1'*62,2)))
-# print(len(str(bin(2147483647))))
