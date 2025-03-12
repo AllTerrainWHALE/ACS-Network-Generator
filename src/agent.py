@@ -11,7 +11,7 @@ from src.utils import bcolors as bc
 
 class Agent():
 
-    learning_rate = 0.9
+    learning_rate = 0.95
      
     def __init__(self,
                 position:tuple[float,float]=(0,0),
@@ -25,7 +25,7 @@ class Agent():
         self.bearing = bearing if bearing else np.random.uniform(0,2*pi)
         self.speed = speed
 
-        self.random_exploration = .4
+        self.random_exploration = .2
         self.exploration_steps = 0
         self.max_exploration_steps = 0
 
@@ -33,7 +33,7 @@ class Agent():
 
         self.switch_cd = None # Phero following switch cooldown
 
-        self.reward = 0x3FFFFFFF
+        self.reward = Cell.MAX_PHERO
 
     def release_phero(self, surrounding):
         # return pheromone amount, and phero type (1 = A | 0 = B)
@@ -45,13 +45,14 @@ class Agent():
         reward = self.reward #+ surr_pheroX[1,1]
 
         phero_val = np.uint32(reward + Agent.learning_rate * np.amax(neighbours))
-        phero_val = max(surr_pheroX[1,1], min(0x3FFFFFFF, phero_val))
-
-        if phero_val <= 1000:
-            self.state = 0 #int(not self.state)
-            phero_val = 0
+        phero_val = max(surr_pheroX[1,1], min(Cell.MAX_PHERO, phero_val))
 
         self.reward = 0
+
+        if phero_val <= 10:
+            returning = phero_val, self.state
+            self.state = 0 #int(not self.state)
+            return returning
 
         return phero_val, self.state
     
@@ -68,8 +69,8 @@ class Agent():
         items,pheroA,pheroB = np.vectorize(lambda a: Cell.getAll(a))(neighbours)
 
         neighbours = np.where(self.state == 0, pheroA, pheroB)
-        neighbours = (neighbours - min(neighbours)) / (max(neighbours) - min(neighbours)) if max(neighbours) > 0 else 0
-        neighbours = np.where(items == Cell.item.WALL, -np.inf, neighbours)
+        neighbours = (neighbours - min(neighbours)) / (max(neighbours) - min(neighbours)) if max(neighbours) > 0 else np.zeros_like(neighbours)
+        # neighbours = np.where(items == Cell.item.WALL, 0, neighbours)
 
         #_ Calc favoured translation from current bearing
         x,y = np.round(np.cos(self.bearing)).astype(int), np.round(-np.sin(self.bearing)).astype(int)
@@ -82,7 +83,7 @@ class Agent():
         t_probs = np.full_like(neighbours, 0.1, dtype=float)
 
         #_ Fully discourage from selecting an out-of-bounds space
-        t_probs[neighbours == -np.inf] = 0
+        t_probs[items == Cell.item.WALL] = 0
 
         #_ Massively encourage following into nest/food source
         t_probs[items == (Cell.item.FOOD if self.state == 1 else Cell.item.NEST)] = 1 #// (Cell.item.FOOD if self.state == 1 else Cell.item.NEST)
@@ -94,7 +95,7 @@ class Agent():
             t_probs += neighbours / max(neighbours.sum(),1)
 
             # Favour the space that the agent is facing (if it's not a wall)
-            if neighbours[heading_index] != -np.inf:
+            if items[heading_index] != Cell.item.WALL:
                 t_probs[heading_index] += .2
 
             # Get all indicies with the max value
@@ -103,7 +104,13 @@ class Agent():
             #// t_probs[indices] += .3
 
             # Select cell with the highest probability
-            index = np.random.choice(np.argwhere(t_probs == np.amax(t_probs)).flatten())
+            # if np.all(t_probs == np.empty_like(t_probs)): print(t_probs)
+            try:
+                max_indices = np.argwhere(t_probs == np.amax(t_probs)).flatten()
+                index = np.random.choice(max_indices)
+            except Exception as e:
+                print(e,end='\n\n')
+                print(max_indices, t_probs, neighbours)
         
         else: #? Random exploration
             self.exploration_steps += self.max_exploration_steps if self.exploration_steps == 0 else -1
@@ -141,9 +148,9 @@ class Agent():
         # elif time() - self.switch_cd >= 10:
         #     self.state = 0
         #     self.switch_cd = time()
-        #     self.reward = 0x3FFFFFFF
+        #     self.reward = Cell.MAX_PHERO
 
-        cell_states = np.vectorize(Cell.getState)(surrounding)
+        cell_states = np.vectorize(Cell.getItem)(surrounding)
         if np.all(cell_states != Cell.item.NONE):
             if np.all(cell_states == Cell.item.NEST):
                 self.state = 1
@@ -151,7 +158,7 @@ class Agent():
                 self.state = 0
 
             self.switch_cd = time()
-            self.reward = 0x3FFFFFFF
+            self.reward = Cell.MAX_PHERO
 
         #// direction = np.array((cos(self.bearing), -sin(self.bearing)))
         #// self.pos += np.clip(direction * dt * self.speed, -1, 1)
@@ -176,7 +183,7 @@ class Agent():
 
         #_ Adjust heading towards desired neighbouring cell
         delta_bearing = self.detect_phero(surrounding, dt)
-        target_bearing = (self.bearing + delta_bearing) % (2*pi)
+        # target_bearing = (self.bearing + delta_bearing) % (2*pi)
 
         # w = 0
         # self.bearing = (w * self.bearing + (1-w) * target_bearing) % (2*pi)
