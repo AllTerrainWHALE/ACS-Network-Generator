@@ -32,7 +32,10 @@ class Environment:
         if food_sources:
             # self.placeFoodDeposit(np.random.randint(150,350, 2))
             self.placeFoodDeposit([200,250])
-            self.placeObstructionSquare([210,215], [275,225])
+            self.placeFoodDeposit([350,250])
+            self.placeFoodDeposit([250,200])
+            # self.placeFoodDeposit([250,300])
+            # self.placeObstructionSquare([210,215], [275,225])
 
         #_ Allocate device memory for grid and output grid once
         self.grid_device = cuda.to_device(self.grid)
@@ -139,7 +142,7 @@ class Environment:
                 blur_b = sum_b / 9
 
                 diffusionDelta = 0.7 * dt
-                evaporationDelta = 0.001 * dt
+                evaporationDelta = 0.02 * dt
 
                 # Diffuse and evaporate pheromones
                 diff_evap_a = max(0, min((xy_pheroA + diffusionDelta * (blur_a - xy_pheroA)) * (1 - evaporationDelta), MAX_PHERO))
@@ -332,7 +335,7 @@ class Visualiser:
         pheroB_norm = (pheroB / Cell.MAX_PHERO)
         
         #_ Scaling pheros
-        gamma = 1
+        gamma = 0.1
         pheroA_scale = np.power(pheroA_norm, gamma)
         pheroB_scale = np.power(pheroB_norm, gamma)
 
@@ -349,7 +352,7 @@ class Visualiser:
         pheroB_colour = (0,0,204)
 
         #_ Add pheromones to canvas
-        amplifier = 1
+        amplifier = 0
 
         g = np.ones_like(pheroA_clip)[:,:,np.newaxis] * self.bg
 
@@ -373,7 +376,11 @@ class Visualiser:
 
         for colony in self.env.colonies:
             for agent in colony.agents:
-                g[tuple(agent.get_pos())] = np.abs(self.bg - ((153,255,153) if agent.state == 1 else (153,153,255)))
+                if agent.problem_child:
+                    g[tuple(agent.get_pos())] = (255,0,0)
+                else:
+                    g[tuple(agent.get_pos())] = np.abs(self.bg - ((153,255,153) if agent.state == 1 else (153,153,255)))
+                    
 
         ###_ Blit canvas and add info HUD _###
         surf = pg.surfarray.make_surface(g)

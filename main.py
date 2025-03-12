@@ -75,7 +75,7 @@ if __name__ == '__main__':
     env_vis_res = (1000,1000)
 
     colonies = 1
-    agents_per_colony = 50
+    agents_per_colony = 100
     updates = -1
 
     print("",

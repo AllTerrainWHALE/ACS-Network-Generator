@@ -11,7 +11,7 @@ from src.utils import bcolors as bc
 
 class Agent():
 
-    learning_rate = 0.95
+    learning_rate = 0.9
      
     def __init__(self,
                 position:tuple[float,float]=(0,0),
@@ -30,6 +30,8 @@ class Agent():
         self.max_exploration_steps = 0
 
         self.state = state if state != None else np.random.randint(0,2)
+        
+        self.problem_child = False
 
         self.switch_cd = None # Phero following switch cooldown
 
@@ -68,9 +70,16 @@ class Agent():
         #_ Retrieve properties of each cell
         items,pheroA,pheroB = np.vectorize(lambda a: Cell.getAll(a))(neighbours)
 
-        neighbours = np.where(self.state == 0, pheroA, pheroB)
-        neighbours = (neighbours - min(neighbours)) / (max(neighbours) - min(neighbours)) if max(neighbours) > 0 else np.zeros_like(neighbours)
+        # neighbours = np.where(self.state == 0, pheroA, pheroB)
+        # neighbours = (neighbours - min(neighbours)) / (max(neighbours) - min(neighbours)) if max(neighbours) > 0 else np.zeros_like(neighbours)
         # neighbours = np.where(items == Cell.item.WALL, 0, neighbours)
+        if self.state == 0: #? Laden with food, returning to nest
+            neighbours = pheroA
+            neighbours = (neighbours - min(neighbours)) / (max(neighbours) - min(neighbours)) if max(neighbours) > 0 else np.zeros_like(neighbours)
+        else: #? Searching for food
+            neighbours = np.clip(pheroB-np.power(pheroA,0.8), a_min=0, a_max=Cell.MAX_PHERO)
+            neighbours = (neighbours - min(neighbours)) / (max(neighbours) - min(neighbours)) if max(neighbours) > 0 else np.zeros_like(neighbours)
+        neighbours = np.where(items == Cell.item.WALL, 0, neighbours)
 
         #_ Calc favoured translation from current bearing
         x,y = np.round(np.cos(self.bearing)).astype(int), np.round(-np.sin(self.bearing)).astype(int)
@@ -96,7 +105,7 @@ class Agent():
 
             # Favour the space that the agent is facing (if it's not a wall)
             if items[heading_index] != Cell.item.WALL:
-                t_probs[heading_index] += .2
+                t_probs[heading_index] += .1
 
             # Get all indicies with the max value
             #//   and favour those in the probabilities array
@@ -105,12 +114,15 @@ class Agent():
 
             # Select cell with the highest probability
             # if np.all(t_probs == np.empty_like(t_probs)): print(t_probs)
-            try:
+            try: #! There's an error that I cannot figure out why it's occuring
                 max_indices = np.argwhere(t_probs == np.amax(t_probs)).flatten()
                 index = np.random.choice(max_indices)
             except Exception as e:
-                print(e,end='\n\n')
+                print(bc.FAIL+e+bc.ENDC)
                 print(max_indices, t_probs, neighbours)
+                index = np.random.choice(8)
+                # self.problem_child = True
+                # exit()
         
         else: #? Random exploration
             self.exploration_steps += self.max_exploration_steps if self.exploration_steps == 0 else -1
