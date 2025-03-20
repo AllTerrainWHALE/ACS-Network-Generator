@@ -45,6 +45,8 @@ class Colony:
                 position=(x,y), state=1 #(a-1)%2
             ))
 
+        np.random.choice(self.agents).tracked = True
+
     def update(self,dt:float=1):
 
         for a in self.agents:

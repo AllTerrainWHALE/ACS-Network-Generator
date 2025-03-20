@@ -20,7 +20,7 @@ def environment_updater(env, colony, iters, stop_event=None):
     iter = 0
     # x,y = 250,125
     while iter != iters:
-        if stop_event and stop_event.is_set(): break
+        if stop_event.is_set(): break
 
         start = time()
         env.update()

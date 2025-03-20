@@ -26,14 +26,15 @@ class Environment:
 
         #_ Define environment grid
         self.grid = np.zeros((resolution), dtype=np.uint64)
-        self.p_grid = np.pad(self.grid, pad_width=1, mode='constant', constant_values=Cell.setItem(0, 3))
+        self.p_grid = np.pad(self.grid, pad_width=1, mode='constant', constant_values=Cell.setItem(0, Cell.item.WALL))
 
         #_ Place food sources
         if food_sources:
             # self.placeFoodDeposit(np.random.randint(150,350, 2))
-            self.placeFoodDeposit([200,250])
+            self.placeFoodDeposit([175,250])
             self.placeFoodDeposit([350,250])
-            self.placeFoodDeposit([250,200])
+            # self.placeFoodDeposit([250,200])
+            self.placeFoodDeposit([100,250])
             # self.placeFoodDeposit([250,300])
             # self.placeObstructionSquare([210,215], [275,225])
 
@@ -142,7 +143,7 @@ class Environment:
                 blur_b = sum_b / 9
 
                 diffusionDelta = 0.7 * dt
-                evaporationDelta = 0.02 * dt
+                evaporationDelta = 0.1 * dt
 
                 # Diffuse and evaporate pheromones
                 diff_evap_a = max(0, min((xy_pheroA + diffusionDelta * (blur_a - xy_pheroA)) * (1 - evaporationDelta), MAX_PHERO))
@@ -194,8 +195,8 @@ class Environment:
         # self.grid[225,(225,275)] = Cell.setPheroB(0,Cell.MAX_PHERO)
         # self.grid[50:230, 230] = Cell.setPheroB(0,Cell.MAX_PHERO)
 
-        if time() - self.runtime_start >= 60:
-            self.grid[245:255, 215:225] = np.vectorize(lambda c: Cell.setItem(c, Cell.item.NONE))(self.grid[245:255, 215:225])
+        # if time() - self.runtime_start >= 60:
+        #     self.grid[245:255, 215:225] = np.vectorize(lambda c: Cell.setItem(c, Cell.item.NONE))(self.grid[245:255, 215:225])
 
 
         for colony in self.colonies:
@@ -335,7 +336,7 @@ class Visualiser:
         pheroB_norm = (pheroB / Cell.MAX_PHERO)
         
         #_ Scaling pheros
-        gamma = 0.1
+        gamma = .1
         pheroA_scale = np.power(pheroA_norm, gamma)
         pheroB_scale = np.power(pheroB_norm, gamma)
 
@@ -366,9 +367,9 @@ class Visualiser:
         )
         
         #_ Add environment items to canvas
-        g[states == 1] = np.array((204,204,0))[np.newaxis,np.newaxis,:]
-        g[states == 2] = np.array((153, 76,0))[np.newaxis,np.newaxis,:]
-        g[states == 3] = np.array((102, 51,0))[np.newaxis,np.newaxis,:]
+        g[states == Cell.item.FOOD] = np.array((204,204,0))[np.newaxis,np.newaxis,:]
+        g[states == Cell.item.NEST] = np.array((153, 76,0))[np.newaxis,np.newaxis,:]
+        g[states == Cell.item.WALL] = np.array((102, 51,0))[np.newaxis,np.newaxis,:]
 
         ###_ Render Agents _###
         # ant_coords = np.array([a.get_pos() for a in self.env.colonies[0].agents])
@@ -376,8 +377,10 @@ class Visualiser:
 
         for colony in self.env.colonies:
             for agent in colony.agents:
-                if agent.problem_child:
+                if agent.tracked:
                     g[tuple(agent.get_pos())] = (255,0,0)
+                elif agent.searching:
+                    g[tuple(agent.get_pos())] = (255,0,255)
                 else:
                     g[tuple(agent.get_pos())] = np.abs(self.bg - ((153,255,153) if agent.state == 1 else (153,153,255)))
                     

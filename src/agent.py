@@ -25,13 +25,19 @@ class Agent():
         self.bearing = bearing if bearing else np.random.uniform(0,2*pi)
         self.speed = speed
 
-        self.random_exploration = .2
+        self.cont_search_prob = .2
+
+        self.exploration_prob = .2
         self.exploration_steps = 0
         self.max_exploration_steps = 0
+
+        self.searching = 0
 
         self.state = state if state != None else np.random.randint(0,2)
         
         self.problem_child = False
+        self.tracked = False
+        self.lost = False
 
         self.switch_cd = None # Phero following switch cooldown
 
@@ -51,9 +57,11 @@ class Agent():
 
         self.reward = 0
 
-        if phero_val <= 10:
+        if phero_val <= 500 and not self.lost:
             returning = phero_val, self.state
-            self.state = 0 #int(not self.state)
+            self.state = int(not self.state)
+            self.lost = True
+            self.switch_cd = time()
             return returning
 
         return phero_val, self.state
@@ -69,16 +77,29 @@ class Agent():
 
         #_ Retrieve properties of each cell
         items,pheroA,pheroB = np.vectorize(lambda a: Cell.getAll(a))(neighbours)
+        pheroA, pheroB = (pheroA/Cell.MAX_PHERO).astype(np.float64), (pheroB/Cell.MAX_PHERO).astype(np.float64)
 
-        # neighbours = np.where(self.state == 0, pheroA, pheroB)
-        # neighbours = (neighbours - min(neighbours)) / (max(neighbours) - min(neighbours)) if max(neighbours) > 0 else np.zeros_like(neighbours)
-        # neighbours = np.where(items == Cell.item.WALL, 0, neighbours)
-        if self.state == 0: #? Laden with food, returning to nest
-            neighbours = pheroA
-            neighbours = (neighbours - min(neighbours)) / (max(neighbours) - min(neighbours)) if max(neighbours) > 0 else np.zeros_like(neighbours)
-        else: #? Searching for food
-            neighbours = np.clip(pheroB-np.power(pheroA,0.8), a_min=0, a_max=Cell.MAX_PHERO)
-            neighbours = (neighbours - min(neighbours)) / (max(neighbours) - min(neighbours)) if max(neighbours) > 0 else np.zeros_like(neighbours)
+        pheroX,pheroY = np.where(self.state == 0, (pheroA, pheroB), (pheroB, pheroA))
+
+        neighbours = np.where(pheroY < 0.5,
+            np.clip(pheroX-np.pow(pheroY, 1/pheroY)+pheroX*0.1*np.sin((pi/0.5)*pheroY), a_min=0, a_max=1),
+            np.clip(pheroX-np.pow(pheroY, 1/pheroY), a_min=0, a_max=1)
+        )
+        # neighbours = np.clip(pheroX-np.pow(pheroY, 1/pheroY), a_min=0, a_max=1)
+
+
+        #// if self.state == 0: #? Laden with food, returning to nest
+        #//     # neighbours = pheroA
+        #//     neighbours = np.clip(pheroA-np.pow(pheroB, 1/pheroB), a_min=0, a_max=1)
+            
+        #// elif self.state == 1: #and not self.searching: #? Following pheroB to food source
+        #//     # neighbours = pheroB
+        #//     neighbours = np.clip(pheroB-np.pow(pheroA, 1/pheroA), a_min=0, a_max=1)
+
+        #// else: #? The ant has no clue what it is wanting to do
+        #//     neighbours = pheroA
+
+        neighbours = (neighbours - min(neighbours)) / (max(neighbours) - min(neighbours)) if max(neighbours) > min(neighbours) else np.zeros_like(neighbours)
         neighbours = np.where(items == Cell.item.WALL, 0, neighbours)
 
         #_ Calc favoured translation from current bearing
@@ -95,10 +116,20 @@ class Agent():
         t_probs[items == Cell.item.WALL] = 0
 
         #_ Massively encourage following into nest/food source
-        t_probs[items == (Cell.item.FOOD if self.state == 1 else Cell.item.NEST)] = 1 #// (Cell.item.FOOD if self.state == 1 else Cell.item.NEST)
+        if time() - self.switch_cd > 3:
+            mask = (
+                np.where( # if, then
+                    items == Cell.item.FOOD, True,
+                np.where( # elif, then
+                    items == Cell.item.NEST, True,
+                False # else then
+            )))
+            #// if np.any(mask):
+            #//     t_probs = np.where(mask, 1, 0).astype(np.float64)
+            t_probs[mask] += 1
 
         #_ Select which cell to move towards
-        if self.exploration_steps == 0 and np.random.rand() > dt * self.random_exploration: #? Move to highest phero
+        if self.exploration_steps == 0 and np.random.rand() > dt * self.exploration_prob: #? Move to highest phero
 
             # Add pheromone values as probabilities to `t_probs`
             t_probs += neighbours / max(neighbours.sum(),1)
@@ -117,12 +148,18 @@ class Agent():
             try: #! There's an error that I cannot figure out why it's occuring
                 max_indices = np.argwhere(t_probs == np.amax(t_probs)).flatten()
                 index = np.random.choice(max_indices)
+
             except Exception as e:
-                print(bc.FAIL+e+bc.ENDC)
+                print(f"{bc.FAIL}{e}{bc.ENDC}")
                 print(max_indices, t_probs, neighbours)
+
+                self.problem_child = True
+
                 index = np.random.choice(8)
-                # self.problem_child = True
                 # exit()
+                
+            if np.all(items == Cell.item.FOOD) and self.tracked:
+                print(f'{"A" if self.state == 0 else "B"}:', list(zip(np.round(pheroA,3),np.round(pheroB,3))), index)
         
         else: #? Random exploration
             self.exploration_steps += self.max_exploration_steps if self.exploration_steps == 0 else -1
@@ -157,20 +194,37 @@ class Agent():
         if self.switch_cd == None:
             self.switch_cd = time()
 
-        # elif time() - self.switch_cd >= 10:
-        #     self.state = 0
-        #     self.switch_cd = time()
-        #     self.reward = Cell.MAX_PHERO
+        elif time() - self.switch_cd >= 30:
+            self.state = int(not self.state)
+            self.lost = True
+            self.reward = 0
+            self.searching = False
+            self.switch_cd = time()
 
-        cell_states = np.vectorize(Cell.getItem)(surrounding)
-        if np.all(cell_states != Cell.item.NONE):
-            if np.all(cell_states == Cell.item.NEST):
+        items,pheroA,pheroB = np.vectorize(Cell.getAll)(surrounding)
+        if np.all(items != Cell.item.NONE) and time() - self.switch_cd > 3:
+            self.lost = False
+
+            if np.all(items == Cell.item.NEST):
                 self.state = 1
-            elif np.all(cell_states == Cell.item.FOOD):
-                self.state = 0
+                self.searching = False
+                self.reward = Cell.MAX_PHERO
+
+            elif np.all(items == Cell.item.FOOD):
+                # self.state = 0 if self.state == 1 else 1
+                if np.any(pheroA > 0) and np.any(pheroB > 0):
+                    self.state = 0 if np.average(pheroB) > np.average(pheroA) else 1
+                elif np.any(pheroA > 0):
+                    self.state = 0
+                elif np.any(pheroB > 0):
+                    self.state = 1
+
+
+                self.reward = Cell.MAX_PHERO #- (np.average(pheroA) if self.state == 1 else np.average(pheroB))
+
+            if self.tracked: print(f'State changed to {"A" if self.state == 0 else "B"}')
 
             self.switch_cd = time()
-            self.reward = Cell.MAX_PHERO
 
         #// direction = np.array((cos(self.bearing), -sin(self.bearing)))
         #// self.pos += np.clip(direction * dt * self.speed, -1, 1)

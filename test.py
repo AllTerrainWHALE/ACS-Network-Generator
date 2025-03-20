@@ -1,9 +1,7 @@
+# %%
 import numpy as np
 import threading as th
 import random
-
-import torch
-import torch.nn as nn
 
 from math import pi, radians, degrees, sqrt, ceil, floor
 from time import sleep
@@ -14,43 +12,54 @@ from src.agent import Agent
 from src.environment import Environment
 from src.utils import *
 
-#? Print statement to stop the first output being merged with shit in the terminal startup
-#? IDK what the fuck goes on there
+#?// Print statement to stop the first output being merged with shit in the terminal startup
+#?// IDK what the fuck goes on there
+#// print()
+
+# %% #! Cell Class Testing
+c = 0
+
+c = Cell.setItem(c, 1)
+c = Cell.setPheroB(c, Cell.MAX_PHERO)
+c = Cell.setPheroA(c, Cell.MAX_PHERO)
+
+print(Cell.getItem(c))
+print(Cell.getPheroA(c))
+print(Cell.getPheroB(c))
+print(Cell.getAll(c))
+
+c = Cell.setPheroA(c, int(Cell.MAX_PHERO/2))
+
+print(Cell.getItem(c))
+print(Cell.getPheroA(c))
+print(Cell.getPheroB(c))
 print()
+print(Cell.MAX_PHERO)
+# %%
+items = np.array([
+    [0,0,1],
+    [2,0,0],
+    [0,0,0]
+])
 
-#! Cell Class Testing
-# c = 0
+print(np.where(items == 1, True, np.where(items == 2, True, False)))
 
-# c = Cell.setItem(c, 1)
-# c = Cell.setPheroB(c, Cell.MAX_PHERO)
-# c = Cell.setPheroA(c, Cell.MAX_PHERO)
-
-# print(Cell.getItem(c))
-# print(Cell.getPheroA(c))
-# print(Cell.getPheroB(c))
-# print(Cell.getAll(c))
-
-# c = Cell.setPheroA(c, int(Cell.MAX_PHERO/2))
-
-# print(Cell.getItem(c))
-# print(Cell.getPheroA(c))
-# print(Cell.getPheroB(c))
-# print()
-# print(Cell.MAX_PHERO)
+#%%
 
 #! Pheromone Dispersal and Evaporation Testing
 xy_phero = Cell.MAX_PHERO
+dt = 1e-1
 print(f"{xy_phero:,}")
 for _ in range(10):
     blur = xy_phero / 9
 
-    diffusionDelta = 0.7
-    evaporationDelta = 0.01
+    diffusionDelta = 0.7 * dt
+    evaporationDelta = 0.1 * dt
 
     diff_evap = (xy_phero + diffusionDelta * (blur - xy_phero)) * (1 - evaporationDelta)
     
 
-    print(f"{round(diff_evap, 3):,}")
+    print(f"{round(diff_evap/Cell.MAX_PHERO, 3):,}")
 
     xy_phero = diff_evap
 
@@ -628,3 +637,44 @@ for _ in range(10):
 
 # print(fn)
 # print()
+
+# %%
+sample = np.arange(9).reshape([3,3])
+sample = sample.flatten()
+neighbours, current_pos = np.concat([sample[:4],sample[5:]]), sample[4]
+
+print(sample,neighbours,current_pos, sep='\n'*2, end='\n'*3)
+
+delta_n = neighbours - current_pos
+
+weights = np.where(
+    delta_n < 0, 0.5, np.where(
+        delta_n == 0, 1, np.where(
+            delta_n > 0, 1 + delta_n, 0
+        )
+    )
+)
+
+t_probs = weights / np.sum(weights)
+
+print(t_probs)
+
+# %%
+items = np.array([
+    [1,1,0],
+    [1,0,0],
+    [0,0,0]
+])
+t_probs = np.arange(9).reshape([3,3])
+
+mask = (
+    np.where( # if, then
+        items == Cell.item.FOOD, True,
+    np.where( # elif, then
+        items == Cell.item.NEST, True,
+    False # else then
+)))
+if np.any(mask):
+    t_probs = np.where(mask, 1, 0)
+
+print(t_probs)
