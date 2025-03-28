@@ -678,3 +678,6 @@ if np.any(mask):
     t_probs = np.where(mask, 1, 0)
 
 print(t_probs)
+
+# %%
+print(regular_polygon([100,100], 50, 5))

@@ -168,3 +168,4 @@ requirements.txt
 **/*backup*
 threadTesting.py
 videos/
+images/

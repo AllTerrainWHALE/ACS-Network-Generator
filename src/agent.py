@@ -25,11 +25,15 @@ class Agent():
         self.bearing = bearing if bearing else np.random.uniform(0,2*pi)
         self.speed = speed
 
+        self.p_t = .3 # Popularity Threshold
+        self.alpha = 0.7
+        self.beta = 0.1
+
         self.cont_search_prob = .2
 
-        self.exploration_prob = .2
+        self.exploration_prob = .5
         self.exploration_steps = 0
-        self.max_exploration_steps = 0
+        self.max_exploration_steps = 5
 
         self.searching = 0
 
@@ -81,26 +85,13 @@ class Agent():
 
         pheroX,pheroY = np.where(self.state == 0, (pheroA, pheroB), (pheroB, pheroA))
 
-        neighbours = np.where(pheroY < 0.5,
-            np.clip(pheroX-np.pow(pheroY, 1/pheroY)+pheroX*0.1*np.sin((pi/0.5)*pheroY), a_min=0, a_max=1),
-            np.clip(pheroX-np.pow(pheroY, 1/pheroY), a_min=0, a_max=1)
-        )
-        # neighbours = np.clip(pheroX-np.pow(pheroY, 1/pheroY), a_min=0, a_max=1)
+        weights = np.clip(np.where(pheroY < self.alpha,
+            pheroX-np.pow(pheroY, self.p_t/pheroY)+pheroX*self.beta*np.sin((pi/self.alpha)*pheroY),
+            pheroX-np.pow(pheroY, self.p_t/pheroY)
+        ), a_min=0, a_max=1)
 
-
-        #// if self.state == 0: #? Laden with food, returning to nest
-        #//     # neighbours = pheroA
-        #//     neighbours = np.clip(pheroA-np.pow(pheroB, 1/pheroB), a_min=0, a_max=1)
-            
-        #// elif self.state == 1: #and not self.searching: #? Following pheroB to food source
-        #//     # neighbours = pheroB
-        #//     neighbours = np.clip(pheroB-np.pow(pheroA, 1/pheroA), a_min=0, a_max=1)
-
-        #// else: #? The ant has no clue what it is wanting to do
-        #//     neighbours = pheroA
-
-        neighbours = (neighbours - min(neighbours)) / (max(neighbours) - min(neighbours)) if max(neighbours) > min(neighbours) else np.zeros_like(neighbours)
-        neighbours = np.where(items == Cell.item.WALL, 0, neighbours)
+        weights = (weights - min(weights)) / (max(weights) - min(weights)) if max(weights) > min(weights) else np.zeros_like(weights)
+        weights = np.where(items == Cell.item.WALL, 0, weights)
 
         #_ Calc favoured translation from current bearing
         x,y = np.round(np.cos(self.bearing)).astype(int), np.round(-np.sin(self.bearing)).astype(int)
@@ -110,13 +101,13 @@ class Agent():
         heading_index -= (heading_index >= 4) # account for deleted index 4
 
         #_ Initialize equal probability of moving to a neighbouring cell
-        t_probs = np.full_like(neighbours, 0.1, dtype=float)
+        t_probs = np.full_like(weights, 0.1, dtype=float)
 
         #_ Fully discourage from selecting an out-of-bounds space
         t_probs[items == Cell.item.WALL] = 0
 
         #_ Massively encourage following into nest/food source
-        if time() - self.switch_cd > 3:
+        if time() - self.switch_cd > 10:
             mask = (
                 np.where( # if, then
                     items == Cell.item.FOOD, True,
@@ -124,39 +115,21 @@ class Agent():
                     items == Cell.item.NEST, True,
                 False # else then
             )))
-            #// if np.any(mask):
-            #//     t_probs = np.where(mask, 1, 0).astype(np.float64)
-            t_probs[mask] += 1
+            t_probs[mask] += 2
 
         #_ Select which cell to move towards
         if self.exploration_steps == 0 and np.random.rand() > dt * self.exploration_prob: #? Move to highest phero
 
             # Add pheromone values as probabilities to `t_probs`
-            t_probs += neighbours / max(neighbours.sum(),1)
+            t_probs += weights / max(weights.sum(),1)
 
             # Favour the space that the agent is facing (if it's not a wall)
             if items[heading_index] != Cell.item.WALL:
-                t_probs[heading_index] += .1
-
-            # Get all indicies with the max value
-            #//   and favour those in the probabilities array
-            #// indices = np.argwhere(neighbours == np.amax(neighbours)).flatten()
-            #// t_probs[indices] += .3
+                t_probs[heading_index] += .05
 
             # Select cell with the highest probability
-            # if np.all(t_probs == np.empty_like(t_probs)): print(t_probs)
-            try: #! There's an error that I cannot figure out why it's occuring
-                max_indices = np.argwhere(t_probs == np.amax(t_probs)).flatten()
-                index = np.random.choice(max_indices)
-
-            except Exception as e:
-                print(f"{bc.FAIL}{e}{bc.ENDC}")
-                print(max_indices, t_probs, neighbours)
-
-                self.problem_child = True
-
-                index = np.random.choice(8)
-                # exit()
+            max_indices = np.argwhere(t_probs == np.amax(t_probs)).flatten()
+            index = np.random.choice(max_indices)
                 
             if np.all(items == Cell.item.FOOD) and self.tracked:
                 print(f'{"A" if self.state == 0 else "B"}:', list(zip(np.round(pheroA,3),np.round(pheroB,3))), index)
@@ -170,19 +143,15 @@ class Agent():
             # Randomly select a direction
             index = np.random.choice(8, p=t_probs)
 
-        # print(self.random_exploration)
-
-        #// print(neighbours, t_probs, sep='\n', end='\n\n')
-
         #_ Adjust resulting index for removed [1, 1] index at the start
         index += int(index >= 4) # Account for (1,1) being removed
 
         #_ Find target translation and required delta bearing
         translation = (index % 3) - 1, (index // 3) - 1
         
-        new_bearing = np.arctan2(-translation[1], translation[0]) #// + (2*pi)) % (2*pi)
+        new_bearing = np.arctan2(-translation[1], translation[0])
 
-        delta_bearing = new_bearing - self.bearing #// % (2*pi)
+        delta_bearing = new_bearing - self.bearing
 
         return delta_bearing
     
@@ -190,11 +159,13 @@ class Agent():
         return np.array([int(a) for a in self.pos])
 
     def update(self, surrounding:"np.ndarray | list[float]", dt:float=1):
-        dt = 1
+        assert type(surrounding) in [np.ndarray, list], f"Invalid parameter type of `{type(surrounding)}` for `surrounding`. Must be of either type `np.ndarray` or `list`"
+        assert type(dt) == float, f"Invalid parameter type of `{type(dt)}` for `dt`. Must be of type `float`"
+
         if self.switch_cd == None:
             self.switch_cd = time()
 
-        elif time() - self.switch_cd >= 30:
+        elif time() - self.switch_cd >= 60:
             self.state = int(not self.state)
             self.lost = True
             self.reward = 0
@@ -202,7 +173,7 @@ class Agent():
             self.switch_cd = time()
 
         items,pheroA,pheroB = np.vectorize(Cell.getAll)(surrounding)
-        if np.all(items != Cell.item.NONE) and time() - self.switch_cd > 3:
+        if np.all(items != Cell.item.NONE) and time() - self.switch_cd > 10:
             self.lost = False
 
             if np.all(items == Cell.item.NEST):
@@ -226,33 +197,22 @@ class Agent():
 
             self.switch_cd = time()
 
-        #// direction = np.array((cos(self.bearing), -sin(self.bearing)))
-        #// self.pos += np.clip(direction * dt * self.speed, -1, 1)
-
-        #_ Restrict agent to environment boundaries
-        # Bouncing off of top and bottom bounds
-        # if any(np.array_equal(np.full(3, Cell.setState(0, 3)), edge) for edge in surrounding[(0,-1),:]):
-        #     #? normal_angle = surface angle->(pi/2) + pi / 2 = pi
-        #     self.bearing = (2 * pi) - self.bearing
-        #     self.bearing %= (2*pi)
-
-        # # Bouncing off of left and right bounds
-        # elif any(np.array_equal(np.full(3, Cell.setState(0, 3)), edge) for edge in surrounding[:,(0,-1)].T):
-        #     #? normal_angle = surface angle->(pi) + pi / 2 = pi * 1.5
-        #     self.bearing = (2 * (pi*1.5)) - self.bearing
-        #     self.bearing %= (2*pi)
-
-        # print(degrees(self.bearing))
-
-        # else: #? What is this???
-        #     self.bearing += pi * 0 * dt
+        #//_ Restrict agent to environment boundaries
+        #// Bouncing off of top and bottom bounds
+        #// if any(np.array_equal(np.full(3, Cell.setState(0, 3)), edge) for edge in surrounding[(0,-1),:]):
+        #//     #? normal_angle = surface angle->(pi/2) + pi / 2 = pi
+        #//     self.bearing = (2 * pi) - self.bearing
+        #//     self.bearing %= (2*pi)
+        #//
+        #// # Bouncing off of left and right bounds
+        #// elif any(np.array_equal(np.full(3, Cell.setState(0, 3)), edge) for edge in surrounding[:,(0,-1)].T):
+        #//     #? normal_angle = surface angle->(pi) + pi / 2 = pi * 1.5
+        #//     self.bearing = (2 * (pi*1.5)) - self.bearing
+        #//     self.bearing %= (2*pi)
 
         #_ Adjust heading towards desired neighbouring cell
         delta_bearing = self.detect_phero(surrounding, dt)
-        # target_bearing = (self.bearing + delta_bearing) % (2*pi)
 
-        # w = 0
-        # self.bearing = (w * self.bearing + (1-w) * target_bearing) % (2*pi)
         self.bearing += delta_bearing
         self.bearing %= (2*pi)
 
