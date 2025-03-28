@@ -71,12 +71,12 @@ if __name__ == '__main__':
 
     parser.add_argument('--agents', '-a', type=int, default=-1, help="Number of agents. Default is 25 per node")
     parser.add_argument('--updates', '-u', type=int, default=-1, help="Number of updates. Default is infinite")
-    parser.add_argument('--timestep', '-t', type=float, default=0.01, help="Time step for each update")
+    parser.add_argument('--timestep', '-t', type=float, default=0.01, help="Timestep for each update in seconds")
 
-    parser.add_argument('--prefab', '-p', type=str, default="default", help="Prefab to load")
+    parser.add_argument('--prefab', '-p', type=str, default="default", help="The chosen prefab to load into the environment. The prefab contains nest and food source positions")
 
-    parser.add_argument('--diffusion_rate', '-df', type=float, default=DIFFUSION_RATE, help="Pheromone diffusion rate")
-    parser.add_argument('--evaporation_rate', '-ef', type=float, default=EVAPORATION_RATE, help="Pheromone evaporation rate")
+    parser.add_argument('--diffusion_rate', '-df', type=float, default=DIFFUSION_RATE, help="Pheromone diffusion rate (0-1)")
+    parser.add_argument('--evaporation_rate', '-ef', type=float, default=EVAPORATION_RATE, help="Pheromone evaporation rate (0-1)")
 
     args = parser.parse_args()
 
