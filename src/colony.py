@@ -12,7 +12,7 @@ class Colony:
     reward = Cell.MAX_PHERO
 
     def __init__(self,
-            environment:Environment,
+            environment:"Environment",
             nest_pos:tuple[int,int],
             colony_size:int,
 
@@ -29,7 +29,7 @@ class Colony:
         r,c = self.env.grid.shape
         y,x = np.ogrid[:r,:c]
 
-        distance = (x - self.pos[0])**2 + (y - self.pos[1])**2 # distance^2 from circle center
+        distance = (x - self.pos[1])**2 + (y - self.pos[0])**2 # distance^2 from circle center
         mask = distance <= self.radius**2
 
         self.env.grid[mask] = np.vectorize(lambda c: Cell.setItem(c, Cell.item.NEST))(self.env.grid[mask])
@@ -39,11 +39,13 @@ class Colony:
             r = radius * sqrt(np.random.uniform())
             theta = np.random.uniform() * 2 * pi
 
-            x,y = self.pos[0] + r * cos(theta), self.pos[1] + r * sin(theta)
+            x,y = self.pos[1] + r * cos(theta), self.pos[0] + r * sin(theta)
 
             self.agents = np.append(self.agents, Agent(
-                position=(x,y), state=1 #(a-1)%2
+                position=(y,x), state=1 #(a-1)%2
             ))
+
+        np.random.choice(self.agents).tracked = True
 
     def update(self,dt:float=1):
 

@@ -1,5 +1,4 @@
-import numpy as np
-# from scipy.stats import norm 
+from math import cos, sin, pi
 
 # Gracefully stolen from https://stackoverflow.com/a/34325723
 def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█', printEnd = "\r"):
@@ -43,38 +42,33 @@ def make_dir (dir_name:str) -> bool:
 
     return success
 
-# Gracefully stolen from ChatGPT
-# def normal_distribution_over_array(array, center_index, sigma=1.0):
-#     # Create an array of indices corresponding to the positions in your array.
-#     indices = np.arange(array.size)
-
-#     # Compute the normal pdf at each index with the given mean and standard deviation.
-#     pdf = norm.pdf(indices, loc=center_index, scale=sigma)
-
-#     # Normalize the pdf so that it sums to 1.
-#     pdf_normalized = pdf / pdf.sum()
-#     return pdf_normalized
-
-# def normal_distribution_by_values(values, center_value, sigma=1.0):
-#     """
-#     Computes a normalized Gaussian distribution based on the actual values.
-
-#     Parameters:
-#       values: array-like, the data values at each index.
-#       center_value: float, the center (mean) of the Gaussian distribution.
-#       sigma: float, the standard deviation controlling the spread.
-
-#     Returns:
-#       A numpy array of normalized weights corresponding to each value.
-#     """
-#     values = np.asarray(values)
-
-#     # Compute the Gaussian probability density for each value
-#     pdf = norm.pdf(values, loc=center_value, scale=sigma)
+# Gracefully tolen from ChatGPT
+def regular_polygon(xy, d, n):
+    """
+    Returns `n` vertices of an equilateral shape of side length `d`
+    centered at (x, y).
     
-#     # Normalize so the sum is 1
-#     pdf_normalized = pdf / pdf.sum()
-#     return pdf_normalized
+    Parameters:
+        xy (float): (x, y)-coordinate of the center
+        d (float): side length of the equilateral shape
+
+    Returns:
+        list of tuples: [(x1, y1), (x2, y2), ..., (xn, yn)] vertices of the shape
+    """
+    x,y = xy
+
+    # For a regular polygon, the circumradius R is given by:
+    R = d / (2 * sin(pi / n))
+    
+    vertices = []
+    # We set the initial angle to pi/2 so that one vertex is straight up.
+    for i in range(n):
+        angle = pi / 2 + i * (2 * pi / n)
+        vx = x + R * cos(angle)
+        vy = y + R * sin(angle)
+        vertices.append((int(vx), int(vy)))
+    
+    return vertices
 
 class bcolors:
     HEADER = '\033[95m'

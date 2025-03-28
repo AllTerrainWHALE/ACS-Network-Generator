@@ -162,8 +162,10 @@ cython_debug/
 #.idea/
 
 # custom ignores
+.vscode/
 env_setup.txt
 requirements.txt
-cell (backup).py
+**/*backup*
 threadTesting.py
 videos/
+images/
