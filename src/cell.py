@@ -18,16 +18,18 @@ class Cell:
     @staticmethod
     def setItem(whole_val: int, new_val: int) -> int:
         """
-        2-bit long integer representing the item of the Cell in the environment.
+        Set the value of the segment representing the item of the Cell in the environment.
 
         - `State.NONE = 0` -> Nothing
         - `State.FOOD = 1` -> Food
         - `State.NEST = 2` -> Nest
         - `State.WALL = 3` -> Wall / Obstruction
 
-        @param whole_val: The whole value of the Cell.
-        @param new_val: The new value to set the item to.
-        @return: The updated whole value of the Cell with the new item set.
+        :param int whole_val: The whole value of the Cell.
+        :param int new_val: The new value to set the item to.
+
+        :return: The updated whole value of the Cell with the new item set.
+        :rtype: int
         """
         # Clear the first 2 bits and set them
         whole_val = (int(whole_val) & ~Cell.ITEM_MASK) | ((int(new_val) & Cell.MAX_ITEM) << (Cell.MASK_STEP*2))
@@ -36,11 +38,12 @@ class Cell:
     @staticmethod
     def setPheroA(whole_val: int, new_val: int) -> int:
         """
-        30-bit long integer representing the amount of pheromones of type A in the Cell.
+        Set the value of the segment representing the amount of pheromones of type A in the Cell.
 
-        @param whole_val: The whole value of the Cell.
-        @param new_val: The new value to set the pheromones to.
-        @return: The updated whole value of the Cell with the new pheromones of type A set.
+        :param int whole_val: The whole value of the Cell.
+        :param int new_val: The new value to set the pheromones to.
+        :return: The updated whole value of the Cell with the new pheromones of type A set.
+        :rtype: int
         """
         # Clear the next 31 bits and set them
         whole_val = (int(whole_val) & ~Cell.PHEROA_MASK) | ((int(new_val) & Cell.MAX_PHERO) << Cell.MASK_STEP)
@@ -49,11 +52,12 @@ class Cell:
     @staticmethod
     def setPheroB(whole_val: int, new_val: int) -> int:
         """
-        30-bit long integer representing the amount of pheromones of type B in the Cell.
+        Set the value of the segment representing the amount of pheromones of type B in the Cell.
 
-        @param whole_val: The whole value of the Cell.
-        @param new_val: The new value to set the pheromones to.
-        @return: The updated whole value of the Cell with the new pheromones of type B set.
+        :param int whole_val: The whole value of the Cell.
+        :param int new_val: The new value to set the pheromones to.
+        :return: The updated whole value of the Cell with the new pheromones of type B set.
+        :rtype: int
         """
         # Clear the last 31 bits and set them
         whole_val = (int(whole_val) & ~Cell.PHEROB_MASK) | (int(new_val) & Cell.MAX_PHERO)
@@ -64,11 +68,12 @@ class Cell:
         """
         Set all the values in the Cell at once.
 
-        @param whole_val: The whole value of the Cell.
-        @param item: The new value to set the item to.
-        @param pheroA: The new value to set the pheromones of type A to.
-        @param pheroB: The new value to set the pheromones of type B to.
-        @return: The updated whole value of the Cell with the new values set.
+        :param int whole_val: The whole value of the Cell.
+        :param int item: The new value to set the item to.
+        :param int pheroA: The new value to set the pheromones of type A to.
+        :param int pheroB: The new value to set the pheromones of type B to.
+        :return: The updated whole value of the Cell with the new values set.
+        :rtype: int
         """
         return Cell.setPheroB(
             Cell.setPheroA(
@@ -83,10 +88,11 @@ class Cell:
     @staticmethod
     def getItem(whole_val: int) -> int:
         """
-        Extract the 2-bit long integer representing the item of the Cell in the environment.
+        Extract the segment representing the item of the Cell in the environment.
         
-        @param whole_val: The whole value of the Cell.
-        @return: The item of the Cell.
+        :param int whole_val: The whole value of the Cell.
+        :return: The item of the Cell.
+        :rtype: int
         """
         # Extract and return the first 2 bits
         return (int(whole_val) >> (Cell.MASK_STEP*2)) & Cell.MAX_ITEM
@@ -94,10 +100,11 @@ class Cell:
     @staticmethod
     def getPheroA(whole_val: int) -> int:
         """
-        Extract the 30-bit long integer representing the amount of pheromones of type A in the Cell.
+        Extract the segment representing the amount of pheromones of type A in the Cell.
         
-        @param whole_val: The whole value of the Cell.
-        @return: The amount of pheromones of type A in the Cell.
+        :param int whole_val: The whole value of the Cell.
+        :return: The amount of pheromones of type A in the Cell.
+        :rtype: int
         """
         # Extract and return the next 31 bits
         return (int(whole_val) >> Cell.MASK_STEP) & Cell.MAX_PHERO
@@ -105,10 +112,11 @@ class Cell:
     @staticmethod
     def getPheroB(whole_val: int) -> int:
         """
-        Extract the 30-bit long integer representing the amount of pheromones of type B in the Cell.
+        Extract the segment representing the amount of pheromones of type B in the Cell.
         
-        @param whole_val: The whole value of the Cell.
-        @return: The amount of pheromones of type B in the Cell.
+        :param int whole_val: The whole value of the Cell.
+        :return: The amount of pheromones of type B in the Cell.
+        :rtype: int
         """
         # Extract and return the last 31 bits
         return int(whole_val) & Cell.MAX_PHERO
@@ -118,8 +126,9 @@ class Cell:
         """
         Get all the values in the Cell at once.
         
-        @param whole_val: The whole value of the Cell.
-        @return: A tuple containing the item, pheromones of type A, and pheromones of type B in the Cell.
+        :param int whole_val: The whole value of the Cell.
+        :return: A tuple containing the item, pheromones of type A, and pheromones of type B in the Cell.
+        :rtype: tuple[int, int, int]
         """
         return Cell.getItem(whole_val), Cell.getPheroA(whole_val), Cell.getPheroB(whole_val)
     

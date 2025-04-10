@@ -31,9 +31,6 @@ class Environment:
         assert isinstance(resolution, (list, tuple, np.ndarray)), f"`resolution` must be a array, list or tuple"
         assert len(resolution) == 2, f"Environment can only be a 2-Dimensional shape, not {len(resolution)}-Dimensional"
 
-        #// assert isinstance(colonies, (list, tuple, np.ndarray)), f"> `colonies` must be a list or tuple"
-        #// assert len(np.shape(colonies)) == 1, f"> `colonies` list must be 1-Dimensional"
-
         #_ Define environment grid
         self.grid = np.zeros((resolution), dtype=np.uint64)
         self.p_grid = np.pad(self.grid, pad_width=1, mode='constant', constant_values=Cell.setItem(0, Cell.item.WALL))
@@ -41,7 +38,7 @@ class Environment:
         #_ Place food sources
         if food_sources:
             for pos in food_source_positions:
-                self.placeFoodDeposit(pos[::-1])
+                self.placeFoodDeposit(pos) # Prefab node locations are given in (x,y) format, but the grid is (y,x) format
 
         #_ Allocate device memory for grid and output grid once
         self.grid_device = cuda.to_device(self.grid)
@@ -49,76 +46,22 @@ class Environment:
 
         self.colony = None
 
+        #_ Additional attributes for controling runtime
         self.paused = False
         self.runtime_start = None
+        self.internal_time = 0
         self.timestep = timestep
         self.update_dt = [0]
         self.ups = 0
 
         self.thread_lock = th.Lock()
 
+        #_ Run the kernel once to load the device memory
+        # This is to ensure that the kernel is compiled and ready to use
         self.disperseAndEvaporate()
         
     @staticmethod
     @cuda.jit
-    # def _static_disperseAndEvaporate(grid, output_grid, dt: float = 1):
-    #     # Thread indices
-    #     x, y = cuda.grid(2)
-
-    #     # Grid size
-    #     nx, ny = grid.shape
-
-    #     # Shared memory for a block (assumes blockDim.x and blockDim.y <= 16)
-    #     shared_grid = cuda.shared.array((32 + 2, 32 + 2), dtype=np.int32)
-
-    #     # Local thread indices in the block
-    #     tx = cuda.threadIdx.x + 1
-    #     ty = cuda.threadIdx.y + 1
-
-    #     # Load data into shared memory with a halo
-    #     if x < nx and y < ny:
-    #         shared_grid[tx, ty] = grid[x, y]
-    #         # Load the halo regions
-    #         if cuda.threadIdx.x == 0 and x > 0:
-    #             shared_grid[tx - 1, ty] = grid[x - 1, y]
-    #         if cuda.threadIdx.x == cuda.blockDim.x - 1 and x < nx - 1:
-    #             shared_grid[tx + 1, ty] = grid[x + 1, y]
-    #         if cuda.threadIdx.y == 0 and y > 0:
-    #             shared_grid[tx, ty - 1] = grid[x, y - 1]
-    #         if cuda.threadIdx.y == cuda.blockDim.y - 1 and y < ny - 1:
-    #             shared_grid[tx, ty + 1] = grid[x, y + 1]
-    #     cuda.syncthreads()
-
-    #     if x < nx and y < ny:
-    #         # Decode pheromones
-    #         xy_pheroA = (shared_grid[tx, ty] >> 31) & 0x7FFFFFFF
-    #         xy_pheroB = shared_grid[tx, ty] & 0x7FFFFFFF
-
-    #         # Blur calculation (sum of neighbors)
-    #         sum_a = 0
-    #         sum_b = 0
-    #         for dx in range(-1, 2):
-    #             if tx+dx < 0 or tx+dx > nx: continue
-
-    #             for dy in range(-1, 2):
-    #                 if ty+dy < 0 or ty+dy > ny: continue
-
-    #                 neighbor_val = shared_grid[tx + dx, ty + dy]
-    #                 sum_a += (neighbor_val >> 31) & 0x7FFFFFFF
-    #                 sum_b += neighbor_val & 0x7FFFFFFF
-
-    #         blur_a = sum_a / 9
-    #         blur_b = sum_b / 9
-
-    #         diffusionDelta = 0.5 * dt
-
-    #         # Diffuse and evaporate pheromones
-    #         diff_evap_a = max(0, (diffusionDelta * xy_pheroA + (1 - diffusionDelta) * blur_a) - (0.01 * dt))
-    #         diff_evap_b = max(0, (diffusionDelta * xy_pheroB + (1 - diffusionDelta) * blur_b) - (0.01 * dt))
-
-    #         # Write to output grid
-    #         output_grid[x, y] = ((int(diff_evap_a) & 0x7FFFFFFF) << 31) | (int(diff_evap_b) & 0x7FFFFFFF)
-
     def _static_disperseAndEvaporate(grid, output_grid:list[int,int], dt:float=1):
         # Thread indices
         x, y = cuda.grid(2)
@@ -128,7 +71,7 @@ class Environment:
             xy_pheroB = grid[x, y] & MAX_PHERO
             isWall = (grid[x, y] >> (MASK_STEP*2)) & MAX_ITEM == 3
 
-            if not isWall:
+            if not isWall: # Caluclate average pheromone values of A and B in the 3x3 grid
                 sum_a = 0
                 sum_b = 0
                 for x1 in range(-1,2):
@@ -141,6 +84,7 @@ class Environment:
                 blur_a = sum_a / 9
                 blur_b = sum_b / 9
 
+                # Calculate diffusion and evaporation factors in reference to the timestep
                 diffusionFactor = DIFFUSION_RATE * dt
                 evaporationFactor = EVAPORATION_RATE * dt
 
@@ -148,10 +92,10 @@ class Environment:
                 diff_evap_a = max(0, min((xy_pheroA + diffusionFactor * (blur_a - xy_pheroA)) * (1 - evaporationFactor), MAX_PHERO))
                 diff_evap_b = max(0, min((xy_pheroB + diffusionFactor * (blur_b - xy_pheroB)) * (1 - evaporationFactor), MAX_PHERO))
             
-            else:
+            else: # Pheromones should not exist in walls
                 diff_evap_a = diff_evap_b = 0
 
-            # Apply effects
+            # Apply updated pheromone values to the output grid
             output_grid[x,y] = (grid[x,y] & ~((MAX_PHERO << MASK_STEP) | MAX_PHERO)) | ((int(diff_evap_a) & MAX_PHERO) << MASK_STEP) | (int(diff_evap_b) & MAX_PHERO)
 
     
@@ -172,53 +116,82 @@ class Environment:
         # Safely copy the new grid back to host
         with self.thread_lock:
             self.grid = self.output_grid_device.copy_to_host()
-            # print(self.grid[250,250])
             self.p_grid[1:-1,1:-1] = self.grid
 
     def update(self, dt:float=1):
+        #_ Don't do anything if paused
         if self.paused: return self.update_dt[-1]
 
+        #_ Start the runtime clock
         if self.runtime_start == None:
             self.runtime_start = time()
 
+        #_ Update runtime attributes
         start = time()
         dt = self.timestep
+        self.internal_time += dt
 
+        #_ Update the colony
         self.colony.update(dt)
 
+        #_ Disperse and evaporate pheromones
         self.disperseAndEvaporate(dt)
 
+        #_ Calculate and return the time taken for the update cycle
         self.update_dt.append(time() - start)
         self.update_dt = self.update_dt[-100:]
-        self.ups = len(self.update_dt) / sum(self.update_dt)
+        self.ups = len(self.update_dt) / sum(self.update_dt) # Updates per second
 
         return self.update_dt[-1]
 
     def get_grid_safely(self):
-        # Safely access the grid in threading
+        """
+        Safely return the grid from the environment. This is to ensure that the grid is not modified while it is being used.
+        """
         with self.thread_lock:
             return self.grid
         
     def get_ups_safely(self):
+        """
+        Safely return the updates per second from the environment. This is to ensure that the updates per second is not modified while it is being used.
+        """
         with self.thread_lock:
             return self.ups
         
     def placeFoodDeposit(self, pos:"list[int]|tuple[int]", radius:int=5):
+        """
+        Place a food deposit in the environment at the given position with the given radius.
+        """
         r,c = self.grid.shape
-        y,x = np.ogrid[:r,:c]
+        x,y = np.ogrid[:r,:c]
 
         distance = (x - pos[0])**2 + (y - pos[1])**2 # distance^2 from circle center
         mask = distance <= radius**2
 
         self.grid[mask] = Cell.setItem(0, Cell.item.FOOD)
 
-    def placeObstructionSquare(self, pos1, pos2):
+    def placeObstructionSquare(self, pos1:tuple[int,int], pos2:tuple[int,int]):
+        """
+        Place a square obstruction in the environment at the given position with the given radius.
+        
+        :param [int, int] pos1: The top left (x,y) position of the square.
+        :param [int, int] pos2: The bottom right (x,y) position of the square.
+        """
         self.grid[pos1[0]:pos2[0], pos1[1]:pos2[1]] = Cell.setItem(0, Cell.item.WALL)
         
     
 
     @staticmethod
-    def sample_state(env:"Environment"=None, empty_ratio:float=0.3, items:bool=True):
+    def sample_state(env:"Environment"=None, empty_ratio:float=0.3, items:bool=True) -> np.ndarray:
+        """
+        Generate a random sample state of the environment. The sample state is a 3x3 grid with random pheromone values and items.
+        
+        :param Environment env: The environment to generate the sample state for. If None, a new environment will be created.
+        :param float empty_ratio: The ratio of empty cells in the sample state. The default is 0.3.
+        :param bool items: Whether to include items in the sample state. The default is True.
+
+        :return np.ndarray: The sample state as a 3x3 grid.
+        """
         if env == None:
             env = Environment([3,3], food_sources=False)
         else:
@@ -255,7 +228,7 @@ class Visualiser:
         screen_res:tuple[int,int]=None,
         fullscreen:bool=False,
         fps:int=30,
-        bg_color:tuple=(0,0,0), fg_color:tuple=(0,204,204)
+        bg_color:tuple=(255,255,255), fg_color:tuple=(0,204,204)
     ):
         self.env = env
 
@@ -299,6 +272,9 @@ class Visualiser:
             pass
 
     def render(self,dt):
+        """
+        Render the environment and the agents onto the canvas.
+        """
 
         fps_txt = self.font.render(f'{round(self.clock.get_fps())} FPS', True, pg.Color('grey'))
         fps_txt_rect = fps_txt.get_rect(topleft=(0,0))
@@ -306,8 +282,11 @@ class Visualiser:
         ups_txt = self.font.render(f'{round(self.env.get_ups_safely())} UPS', True, pg.Color('grey'))
         ups_txt_rect = ups_txt.get_rect(topleft=(0,20))
 
-        rt_txt = self.font.render(f'{timedelta(seconds=round(time() - self.env.runtime_start))}', True, pg.Color('grey'))
-        rt_txt_rect = rt_txt.get_rect(topright=self.rect.topright)
+        # rt_txt = self.font.render(f'{timedelta(seconds=round(time() - self.env.runtime_start))}', True, pg.Color('grey'))
+        # rt_txt_rect = rt_txt.get_rect(topright=self.rect.topright)
+
+        it_txt = self.font.render(f'{round(self.env.internal_time,3)}s', True, pg.Color('grey'))
+        it_txt_rect = it_txt.get_rect(topright=self.rect.topright)
 
         dt_txt = self.font.render(f'{round(np.mean(self.env.update_dt),3)} spu', True, pg.Color('grey'))
         dt_txt_rect = dt_txt.get_rect(topright=self.rect.topright+pg.Vector2(0,20))
@@ -356,10 +335,10 @@ class Visualiser:
         ###_ Render Agents _###
 
         for agent in self.env.colony.agents:
-            if agent.tracked:
-                g[tuple(agent.get_pos())] = (255,0,0)
-            else:
-                g[tuple(agent.get_pos())] = np.abs(self.bg - ((153,255,153) if agent.state == 1 else (153,153,255)))
+            # if agent.tracked:
+            #     g[tuple(agent.get_pos())] = (255,0,0)
+            # else:
+                g[tuple(agent.get_pos())] = np.abs(self.bg - (255,255,255))#np.abs(self.bg - ((153,255,153) if agent.state == 1 else (153,153,255)))
                     
 
         ###_ Blit canvas and add info HUD _###
@@ -370,14 +349,18 @@ class Visualiser:
         ))
 
         self.screen.blit(surf, (0,0))
-        self.screen.blit(fps_txt,fps_txt_rect)
-        self.screen.blit(ups_txt,ups_txt_rect)
-        self.screen.blit(rt_txt,rt_txt_rect)
-        self.screen.blit(dt_txt,dt_txt_rect)
+        # self.screen.blit(fps_txt,fps_txt_rect)
+        # self.screen.blit(ups_txt,ups_txt_rect)
+        # self.screen.blit(rt_txt,rt_txt_rect)
+        self.screen.blit(it_txt,it_txt_rect)
+        # self.screen.blit(dt_txt,dt_txt_rect)
         
         pg.display.update()
 
     def main(self):
+        """
+        Main loop for the visualiser. This will run until the user closes the window.
+        """
         while self.running:
             dt = self.clock.tick(self.fps) / 1000
 

@@ -16,41 +16,32 @@ from src.utils import printProgressBar, bcolors as bc
 from colorama import init
 init()
 
+#_ Function to update and maintain the environment on an isolated thread
 def environment_updater(env, iters, stop_event=None):
+    """
+    Function to update the environment and colony.
+
+    The environment thread is halted when the visualiser is closed and vise versa (assuming a visualiser exists).
+    """
     #// durations = [0]
     iter = 0
     # x,y = 250,125
     while iter != iters:
         if stop_event.is_set(): break
-
-        #// start = time()
         env.update()
-        #// durations.append(time() - start)
 
         iter += 1
     
     if stop_event:
         stop_event.set()
 
-    #// print(*durations, sep='\n', end='\n\n')
-    #// average_dur = sum(durations[2:]) / len(durations[2:])
-    #// ups = 1 / average_dur
-    #//
-    #// print(
-    #//
-    #//     f" " + f"_"*37 + f" ",
-    #//     f"|{'RESULTS':^37}|",
-    #//     f"|" + f" "*37 + f"|",
-    #//
-    #//     f"|{'Average':>17} : {round(average_dur, 6):<17}|",
-    #//     f"|{'UPS':>17} : {round(ups, 0):<17}|",
-    #//     f"|" + f"_"*37 + f"|",
-    #//
-    #//     sep='\n',
-    #//     end='\n\n'
-    #// )
-
+#_ Function to generate and maintain environment visualiser on an isolated thread
 def environment_visualiser(env, res, stop_event):
+    """
+    Function to generate and maintain the environment visualiser.
+
+    The environment thread is halted when the visualiser is closed and vise versa.
+    """
     env_vis = Visualiser(env, fps=15, screen_res=res)
 
     try:
@@ -106,7 +97,7 @@ if __name__ == '__main__':
         # 25 agents for every node (nest + food source)
         args.agents = (len(food_poss) + 1) * 25
 
-
+    #_ Print settings in a pretty way
     print("",
         
         f" " + f"_"*37 + f" ",
@@ -128,6 +119,7 @@ if __name__ == '__main__':
         sep='\n',
         end='\n\n'
     )
+    #// print(f'{bc.FAIL}EXPERIMENT WITH MOVING FOOD SOURCES{bc.ENDC}')
 
     ###_ Initialize Environment and Colony _###
     env = Environment(args.env_res,
@@ -140,7 +132,7 @@ if __name__ == '__main__':
         env, colony_pos, args.agents
     )
 
-
+    #_ User input for visualisation
     answer = None
     while answer not in ['y','n','']:
         answer = input("> Do you want the visual environment? ([y]/n) ").lower().strip(' ')

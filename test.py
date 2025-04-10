@@ -680,4 +680,100 @@ if np.any(mask):
 print(t_probs)
 
 # %%
-print(regular_polygon([100,100], 50, 5))
+from src.utils import regular_polygon
+import numpy as np
+print((np.array([200,200]) - regular_polygon([100,100], 90, 5)).flatten())
+
+# %%
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+import numpy as np
+
+xPheros = np.arange(0, 1.1, .1)[::-1] #np.array([1])
+yPheros = np.arange(0, 1.1, .01)
+alpha = np.array([0.7]) #np.array([0.01, 0.3, 0.9, 1.5, 3])
+output = np.zeros((alpha.shape[0], yPheros.shape[0], xPheros.shape[0]))
+
+for i,a in enumerate(alpha):
+    vals = output[i] = np.array([np.clip(xPhero - np.pow(yPheros, a/yPheros), a_min=0, a_max=1) for xPhero in xPheros]).T
+
+    color = list(mcolors.TABLEAU_COLORS.values())[i]
+    plt.plot(yPheros, vals[:, 0],
+             color=color,
+             linestyle='-',
+             linewidth=3,  # Increased linewidth
+             label=f"α = {a}",
+             )  # Label only the first line
+    # Plot the rest of the lines with no legend label
+    for j in range(1, vals.shape[1]):
+        plt.plot(yPheros, vals[:, j], color=color, linestyle='--', linewidth=2, label="_nolegend_")
+
+
+plt.rcParams.update({'font.size': 14})
+plt.gcf().set_size_inches(12, 12)  # Set the figure size to 12x8 inches
+plt.gca().set_aspect('equal', adjustable='box')
+
+plt.xlabel("Peripheral Pheromone Value, U_q(s'')")
+plt.ylabel("weight, w")
+# plt.title("Plot of weights vs peripheral pheromone values, with varying values of alpha, α")
+plt.title("Plot of weights vs peripheral pheromone values, with alpha, α = 0.7")
+
+plt.xticks(np.arange(0, 1.1, 0.1))
+plt.xlim(0,1)
+plt.yticks(np.arange(0, 1.1, 0.1))
+plt.ylim(0,1.01)
+
+plt.legend()
+plt.grid(True)
+plt.show()
+
+# %%
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+import numpy as np
+
+xPheros = np.array([0.5,0.6])
+yPheros = np.arange(0, 1.1, .01)
+alpha = 0.3
+colours = [mcolors.TABLEAU_COLORS['tab:green'],mcolors.TABLEAU_COLORS['tab:red']]
+
+for i,x in enumerate(xPheros):
+    vals = np.clip(x - np.pow(yPheros, alpha/yPheros), a_min=0, a_max=1)
+
+    color = colours[i]
+    plt.plot(yPheros, vals,
+             color=color,
+             linestyle='-',
+             linewidth=3,  # Increased linewidth
+             label=f"Uₚ(s'') = {x}",
+             )  # Label only the first line
+
+
+plt.rcParams.update({'font.size': 14})
+plt.gcf().set_size_inches(12, 12)  # Set the figure size to 12x8 inches
+plt.gca().set_aspect('equal', adjustable='box')
+
+plt.xlabel("Peripheral Pheromone Value, U_q(s'')")
+plt.ylabel("weight, w")
+# plt.title("Plot of weights vs peripheral pheromone values, with varying values of alpha, α")
+plt.title("Plot of weights vs peripheral pheromone values, with alpha, α = 0.3")
+
+plt.xticks(np.arange(0, 1.1, 0.1))
+plt.xlim(0,1)
+plt.yticks(np.arange(0, 1.1, 0.1))
+plt.ylim(0,1.01)
+
+plt.legend()
+plt.grid(True)
+plt.show()
+
+#%%
+import numpy as np
+
+a = np.array([True, True, False, True, True, True, False, True])
+
+mask = a & np.roll(a, 1) & np.roll(a, -1)
+
+print(a)
+print(mask)
+print(np.argwhere(mask).flatten())
