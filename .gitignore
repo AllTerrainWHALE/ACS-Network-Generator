@@ -169,3 +169,4 @@ requirements.txt
 threadTesting.py
 videos/
 images/
+*.zip
