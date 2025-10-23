@@ -3,6 +3,8 @@
 ## Overview
 The ACS-Network-Generator is a simulation project that models the behavior of ant colonies using agents. The environment is visualized using `pygame`, and the simulation includes features such as pheromone dispersal and evaporation, agent movement, and interaction with the environment.
 
+**Full technical report can be found [here](https://bradleyhopper.com/assets/documents/Modelling_duel_pheromone_ant_foraging_in_a_multiple_food_source_environment.pdf)**
+
 ## Features
 - **Environment Simulation**: Simulates an environment where agents (ants) interact with each other and their surroundings.
 - **Pheromone Mechanics**: Implements pheromone dispersal and evaporation using CUDA for performance optimization.
@@ -54,10 +56,6 @@ ACS-Network-Generator/
 ```
 
 ## TO-DO
-
-
-## Contributing
-Contributions are welcome! Please fork the repository and submit a pull request for any improvements or bug fixes.
 
 ## Acknowledgements
 - [Numba](https://numba.pydata.org/) for CUDA support.
