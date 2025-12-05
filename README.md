@@ -39,7 +39,6 @@ The environment is visualized using `pygame`, and the simulation includes featur
     ```sh
     python main.py
     ```
-    - test
 
 2. **Follow the prompts** to choose whether to visualize the environment.
 
